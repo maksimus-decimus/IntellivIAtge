@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "616941545128",
+    "project_id": "intelliviaje",
+    "storage_bucket": "intelliviaje.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616941545128:android:49e76878dd390795af449d",
+        "android_client_info": {
+          "package_name": "com.example.flutter_intelli2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkpghXH-XJPYI9B4i7TuiL1azN_qVkcOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
