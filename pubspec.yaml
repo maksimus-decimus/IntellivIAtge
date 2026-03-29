@@ -25,6 +25,8 @@ dependencies:
   uuid: ^4.3.3
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.0
+  firebase_core: ^4.6.0
+  firebase_auth: ^6.3.0
 
 dev_dependencies:
   flutter_test:

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+
+// Your Project Imports
 import 'models/types.dart';
 import 'services/ollama_service.dart';
 import 'widgets/app_layout.dart';
@@ -19,17 +24,21 @@ import 'screens/security_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/first_time_guide_screen.dart';
 
-void main() {
+void main() async {
+  // 1. Ensure Flutter and Firebase are initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Set status bar style
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // 2. Set status bar style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  
+
   runApp(const IntelliviAtgeApp());
 }
 
@@ -51,6 +60,7 @@ class IntelliviAtgeApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
+      // We start at MainScreen which handles the Auth Logic
       home: const MainScreen(),
     );
   }
@@ -64,7 +74,9 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  ScreenName _currentScreen = ScreenName.login;
+  // Default screen after login is Home
+  ScreenName _currentScreen = ScreenName.home;
+
   final List<ScreenName> _shortcuts = [
     ScreenName.home,
     ScreenName.groups,
@@ -72,25 +84,20 @@ class _MainScreenState extends State<MainScreen> {
     ScreenName.trips,
     ScreenName.profile,
   ];
-  
+
   late final OllamaService _ollamaService;
 
   @override
   void initState() {
     super.initState();
-    // Initialize Ollama Service (local model)
     _ollamaService = OllamaService();
   }
 
-  void _handleLogin() {
+  // Handle Logout via Firebase
+  void _handleLogout() async {
+    await FirebaseAuth.instance.signOut();
     setState(() {
-      _currentScreen = ScreenName.home;
-    });
-  }
-
-  void _handleLogout() {
-    setState(() {
-      _currentScreen = ScreenName.login;
+      _currentScreen = ScreenName.home; // Reset to home for next login
     });
   }
 
@@ -135,10 +142,11 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  Widget _buildScreen() {
+  Widget _buildScreen(User? user) {
     switch (_currentScreen) {
       case ScreenName.login:
-        return LoginScreen(onLogin: _handleLogin);
+        // Firebase handles login state, so we shouldn't normally hit this case
+        return HomeScreen(onNavigate: _handleNavigate);
       case ScreenName.home:
         return HomeScreen(onNavigate: _handleNavigate);
       case ScreenName.aiGuide:
@@ -171,21 +179,38 @@ class _MainScreenState extends State<MainScreen> {
             _currentScreen = ScreenName.home;
           });
         });
+      default:
+        return HomeScreen(onNavigate: _handleNavigate);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_currentScreen == ScreenName.login) {
-      return _buildScreen();
-    }
+    // 3. Listen to Firebase Authentication State
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // If user is NOT logged in, show Login Screen
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
 
-    return AppLayout(
-      currentScreen: _currentScreen,
-      onNavigate: _handleNavigate,
-      title: _getScreenTitle(_currentScreen),
-      shortcuts: _shortcuts,
-      child: _buildScreen(),
+        if (!snapshot.hasData) {
+          return LoginScreen(onLogin: () {
+            // Logic handled by authStateChanges stream automatically
+          });
+        }
+
+        // If user IS logged in, show the App with Layout
+        return AppLayout(
+          currentScreen: _currentScreen,
+          onNavigate: _handleNavigate,
+          title: _getScreenTitle(_currentScreen),
+          shortcuts: _shortcuts,
+          child: _buildScreen(snapshot.data),
+        );
+      },
     );
   }
 }
