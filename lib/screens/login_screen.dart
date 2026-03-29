@@ -47,6 +47,66 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // 3b. Firebase Registration Logic
+  Future<void> _signUp() async {
+    // Validation
+    if (_emailController.text.trim().isEmpty || 
+        _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, completa todos los campos'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+      return;
+    }
+
+    if (_passwordController.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La contraseña debe tener al menos 6 caracteres'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+      // Success! Show welcome message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Cuenta creada con éxito! Bienvenido 🎉'),
+            backgroundColor: Color(0xFF34D399),
+          ),
+        );
+      }
+      // The StreamBuilder in main.dart will handle the navigation
+    } on FirebaseAuthException catch (e) {
+      String message = 'Ocurrió un error al crear la cuenta';
+      if (e.code == 'weak-password') {
+        message = 'La contraseña es demasiado débil.';
+      } else if (e.code == 'email-already-in-use') {
+        message = 'Este correo ya está registrado.';
+      } else if (e.code == 'invalid-email') {
+        message = 'El correo electrónico no es válido.';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,10 +188,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   // 6. Login Button (Connected to _signIn)
                   _isLoading
                       ? const CircularProgressIndicator()
-                      : BouncyButton(
-                          onPressed: _signIn,
-                          fullWidth: true,
-                          child: const Text('¡Vamos allá!'),
+                      : Column(
+                          children: [
+                            BouncyButton(
+                              onPressed: _signIn,
+                              fullWidth: true,
+                              child: const Text('¡Vamos allá!'),
+                            ),
+                            const SizedBox(height: 12),
+                            // 7. Register Button
+                            BouncyButton(
+                              onPressed: _signUp,
+                              fullWidth: true,
+                              color: const Color(0xFF6366F1),
+                              shadowColor: const Color(0xFF4338CA),
+                              child: const Text('Crear cuenta nueva'),
+                            ),
+                          ],
                         ),
 
                   const SizedBox(height: 32),
