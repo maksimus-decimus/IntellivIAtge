@@ -34,6 +34,21 @@ class HomeScreen extends StatelessWidget {
             ),
             child: Stack(
               children: [
+                // Logo en la parte superior derecha
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/icono_foto.png',
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -189,6 +189,31 @@ class AppConstants {
       reviews: [],
       recommendedRestaurants: [],
     ),
+    Dish(
+      id: 'd3',
+      name: 'Tortilla de Patatas',
+      description: 'La reina de las tortillas española. Patatas, huevos y cebolla. Simple pero perfecta.',
+      image: '🥚',
+      isVegetarian: true,
+      isSpicy: false,
+      photoUrl: 'assets/images/tortilla_recipe.jpeg',
+      reviews: [
+        Review(
+          user: 'José M.',
+          comment: 'La tortilla de toda la vida. Crujiente por fuera, jugosa por dentro. Perfecta.',
+          rating: 5,
+        ),
+        Review(
+          user: 'Carmen L.',
+          comment: 'De las mejores tortillas que he probado. El punto de cocción es impecable.',
+          rating: 5,
+        ),
+      ],
+      recommendedRestaurants: [
+        RecommendedRestaurant(name: 'El Xampanyet', address: 'Carrer de Mont carles, 22', rating: 4.3),
+        RecommendedRestaurant(name: '7 Portes', address: 'Passeig d\'Isabel II, 14', rating: 4.5),
+      ],
+    ),
   ];
 
   // Top Restaurants
