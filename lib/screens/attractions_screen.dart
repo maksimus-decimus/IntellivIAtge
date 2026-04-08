@@ -34,7 +34,8 @@ class AttractionsScreen extends StatelessWidget {
                   attraction.image,
                   height: 200,
                   width: double.infinity,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       height: 200,

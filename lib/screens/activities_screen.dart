@@ -141,13 +141,14 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: Image.asset(
                             event.image,
-                            width: 80,
-                            height: 80,
+                            width: 140,
+                            height: 85,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 width: 80,
-                                height: 80,
+                                height: 60,
                                 color: Colors.grey[300],
                                 child: const Icon(Icons.event, color: Colors.grey),
                               );
@@ -555,8 +556,9 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                           child: Image.asset(
                             event.image,
                             width: double.infinity,
-                            height: 128,
+                            height: 200,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 width: double.infinity,

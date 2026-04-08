@@ -378,6 +378,7 @@ class _TripsScreenState extends State<TripsScreen> {
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -769,7 +770,7 @@ class _TripsScreenState extends State<TripsScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(50),
-            child: Image.asset(avatar, width: 40, height: 40, fit: BoxFit.cover),
+            child: Image.asset(avatar, width: 40, height: 40, fit: BoxFit.cover, filterQuality: FilterQuality.high),
           ),
           const SizedBox(width: 12),
           Expanded(

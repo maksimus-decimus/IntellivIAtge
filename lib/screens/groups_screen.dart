@@ -173,6 +173,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                             width: 48,
                             height: 48,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 width: 48,
@@ -422,6 +423,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 width: 40,
@@ -527,6 +529,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       width: 40,
                       height: 40,
                       fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           width: 40,

@@ -221,7 +221,7 @@ class _CommunityCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                backgroundImage: NetworkImage(post.avatar),
+                backgroundImage: AssetImage(post.avatar),
                 radius: 20,
               ),
               const SizedBox(width: 12),

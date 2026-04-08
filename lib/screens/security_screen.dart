@@ -611,10 +611,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                  child: Image.network(
+                  child: Image.asset(
                     imageUrl,
                     width: double.infinity,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: const Color(0xFFE2E8F0),

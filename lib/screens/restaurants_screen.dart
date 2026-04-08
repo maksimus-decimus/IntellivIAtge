@@ -95,7 +95,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                         restaurant.image ?? 'assets/images/7_portes.jpeg',
                         width: double.infinity,
                         height: 260,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             width: double.infinity,
@@ -289,7 +290,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                               dish.photoUrl!,
                               width: double.infinity,
                               height: 260,
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
                                   width: double.infinity,
@@ -692,7 +694,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       dish.photoUrl!,
                       width: 80,
                       height: 80,
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           width: 80,

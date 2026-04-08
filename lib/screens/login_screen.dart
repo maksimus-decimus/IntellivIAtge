@@ -59,7 +59,8 @@ class LoginScreen extends StatelessWidget {
                     child: ClipOval(
                       child: Image.asset(
                         'assets/images/icono_foto.png',
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
                         errorBuilder: (context, error, stackTrace) {
                           return const Center(
                             child: Text('🦎', style: TextStyle(fontSize: 64)),
