@@ -121,7 +121,7 @@ class AppLayout extends StatelessWidget {
             ? Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: CircleAvatar(
-                  backgroundImage: NetworkImage('https://picsum.photos/50/50?random=100'),
+                  backgroundImage: AssetImage('assets/images/carlos.jpeg'),
                   radius: 20,
                 ),
               )

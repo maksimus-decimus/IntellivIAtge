@@ -91,8 +91,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   // Image
                   Stack(
                     children: [
-                      Image.network(
-                        restaurant.image ?? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+                      Image.asset(
+                        restaurant.image ?? 'assets/images/7_portes.jpeg',
                         width: double.infinity,
                         height: 260,
                         fit: BoxFit.cover,
@@ -285,7 +285,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   Stack(
                     children: [
                       dish.photoUrl != null
-                          ? Image.network(
+                          ? Image.asset(
                               dish.photoUrl!,
                               width: double.infinity,
                               height: 260,
@@ -405,7 +405,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   ),
 
                   // Reviews
-                  if (dish.reviews != null && dish.reviews!.isNotEmpty) ...[
+                  if (dish.reviews.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
                       color: Colors.white,
@@ -428,7 +428,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          ...dish.reviews!.map((review) {
+                          ...dish.reviews.map((review) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(16),
@@ -481,7 +481,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   ],
 
                   // Recommended Restaurants
-                  if (dish.recommendedRestaurants != null && dish.recommendedRestaurants!.isNotEmpty) ...[
+                  if (dish.recommendedRestaurants.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
                       color: Colors.white,
@@ -505,7 +505,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          ...dish.recommendedRestaurants!.map((rest) {
+                          ...dish.recommendedRestaurants.map((rest) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(16),
@@ -688,7 +688,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 if (dish.photoUrl != null)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(40),
-                    child: Image.network(
+                    child: Image.asset(
                       dish.photoUrl!,
                       width: 80,
                       height: 80,
@@ -822,8 +822,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  restaurant.image ?? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+                child: Image.asset(
+                  restaurant.image ?? 'assets/images/7_portes.jpeg',
                   width: 96,
                   height: 96,
                   fit: BoxFit.cover,

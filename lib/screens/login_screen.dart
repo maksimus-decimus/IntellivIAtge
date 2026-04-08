@@ -57,8 +57,8 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ),
                     child: ClipOval(
-                      child: Image.network(
-                        'https://picsum.photos/seed/intelliviatge-logo/200/200',
+                      child: Image.asset(
+                        'assets/images/icono_foto.png',
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return const Center(

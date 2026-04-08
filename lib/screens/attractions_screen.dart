@@ -30,7 +30,7 @@ class AttractionsScreen extends StatelessWidget {
               // Image
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Image.network(
+                child: Image.asset(
                   attraction.image,
                   height: 200,
                   width: double.infinity,

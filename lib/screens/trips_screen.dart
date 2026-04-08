@@ -373,8 +373,8 @@ class _TripsScreenState extends State<TripsScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(50),
-                          child: Image.network(
-                            'https://picsum.photos/40/40?random=${i + 50}',
+                          child: Image.asset(
+                            i % 2 == 0 ? 'assets/images/carlos.jpeg' : 'assets/images/laura.jpeg',
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
@@ -733,7 +733,7 @@ class _TripsScreenState extends State<TripsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 _buildDebtCard(
-                  'https://picsum.photos/40/40?random=51',
+                  'assets/images/laura.jpeg',
                   'Ana te debe',
                   'De: Entradas Museo',
                   '€20.00',
@@ -741,7 +741,7 @@ class _TripsScreenState extends State<TripsScreen> {
                   'Marcar pagado',
                 ),
                 _buildDebtCard(
-                  'https://picsum.photos/40/40?random=52',
+                  'assets/images/carlos.jpeg',
                   'Debes a Carlos',
                   'De: Taxis',
                   '€15.50',
@@ -769,7 +769,7 @@ class _TripsScreenState extends State<TripsScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(50),
-            child: Image.network(avatar, width: 40, height: 40, fit: BoxFit.cover),
+            child: Image.asset(avatar, width: 40, height: 40, fit: BoxFit.cover),
           ),
           const SizedBox(width: 12),
           Expanded(

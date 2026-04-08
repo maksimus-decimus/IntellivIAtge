@@ -58,17 +58,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
   String _groupName = '';
 
   final List<Friend> _friends = [
-    Friend(id: 'f1', name: 'Carlos M.', avatar: 'https://picsum.photos/60/60?random=2', status: 'online', username: '@carlos_bcn'),
-    Friend(id: 'f2', name: 'Laura S.', avatar: 'https://picsum.photos/60/60?random=4', status: 'offline', username: '@laura_travel'),
-    Friend(id: 'f3', name: 'Ana García', avatar: 'https://picsum.photos/60/60?random=10', status: 'online', username: '@ana_g'),
-    Friend(id: 'f4', name: 'Marc Vila', avatar: 'https://picsum.photos/60/60?random=11', status: 'online', username: '@marcvila'),
+    Friend(id: 'f1', name: 'Carlos M.', avatar: 'assets/images/carlos.jpeg', status: 'online', username: '@carlos_bcn'),
+    Friend(id: 'f2', name: 'Laura S.', avatar: 'assets/images/laura.jpeg', status: 'offline', username: '@laura_travel'),
+    Friend(id: 'f3', name: 'Ana García', avatar: 'assets/images/laura.jpeg', status: 'online', username: '@ana_g'),
+    Friend(id: 'f4', name: 'Marc Vila', avatar: 'assets/images/carlos.jpeg', status: 'online', username: '@marcvila'),
   ];
 
   final List<ChatItem> _chats = [
-    ChatItem(id: 1, name: 'Ruta Gastronómica', isGroup: true, avatar: 'https://picsum.photos/60/60?random=1', lastMessage: 'Ana: ¿A qué hora quedamos mañana?', time: '10:42', unread: 2),
-    ChatItem(id: 2, name: 'Carlos M.', isGroup: false, avatar: 'https://picsum.photos/60/60?random=2', lastMessage: '¡Genial! Nos vemos allí.', time: 'Ayer', unread: 0),
-    ChatItem(id: 3, name: 'Familia López', isGroup: true, avatar: 'https://picsum.photos/60/60?random=3', lastMessage: 'Papá: He comprado las entradas para el Park Güell.', time: 'Ayer', unread: 0),
-    ChatItem(id: 4, name: 'Laura S.', isGroup: false, avatar: 'https://picsum.photos/60/60?random=4', lastMessage: '¿Me pasas el link del restaurante?', time: 'Lunes', unread: 0),
+    ChatItem(id: 1, name: 'Ruta Gastronómica', isGroup: true, avatar: 'assets/images/ruta_gastronomica.jpeg', lastMessage: 'Ana: ¿A qué hora quedamos mañana?', time: '10:42', unread: 2),
+    ChatItem(id: 2, name: 'Carlos M.', isGroup: false, avatar: 'assets/images/carlos.jpeg', lastMessage: '¡Genial! Nos vemos allí.', time: 'Ayer', unread: 0),
+    ChatItem(id: 3, name: 'Familia López', isGroup: true, avatar: 'assets/images/fotofamily.jpeg', lastMessage: 'Papá: He comprado las entradas para el Park Güell.', time: 'Ayer', unread: 0),
+    ChatItem(id: 4, name: 'Laura S.', isGroup: false, avatar: 'assets/images/laura.jpeg', lastMessage: '¿Me pasas el link del restaurante?', time: 'Lunes', unread: 0),
   ];
 
   ChatItem? get _activeChat => _chats.firstWhere((c) => c.id == _selectedChatId, orElse: () => _chats.first);
@@ -168,8 +168,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(50),
-                          child: Image.network(
-                            'https://picsum.photos/50/50?random=${i + 20}',
+                          child: Image.asset(
+                            'assets/images/carlos.jpeg',
                             width: 48,
                             height: 48,
                             fit: BoxFit.cover,
@@ -417,7 +417,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(50),
-                          child: Image.network(
+                          child: Image.asset(
                             friend.avatar,
                             width: 40,
                             height: 40,
@@ -522,7 +522,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   const SizedBox(width: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(50),
-                    child: Image.network(
+                    child: Image.asset(
                       chat.avatar,
                       width: 40,
                       height: 40,

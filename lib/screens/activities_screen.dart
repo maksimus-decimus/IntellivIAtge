@@ -40,7 +40,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       date: '15 de Mayo, 21:00',
       location: 'Palau Sant Jordi',
       price: 65,
-      image: 'https://picsum.photos/400/200?random=11',
+      image: 'assets/images/rosalía.jpeg',
       category: 'Conciertos 🎸',
     ),
     Event(
@@ -49,7 +49,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       date: '20 de Mayo, 19:30',
       location: 'Teatro Lope de Vega',
       price: 45,
-      image: 'https://picsum.photos/400/200?random=12',
+      image: 'assets/images/el_rey_leon_musical.jpeg',
       category: 'Teatro 🎭',
     ),
     Event(
@@ -58,7 +58,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       date: '28 de Mayo, 20:45',
       location: 'Camp Nou',
       price: 120,
-      image: 'https://picsum.photos/400/200?random=13',
+      image: 'assets/images/camp_nou_stadium.jpeg',
       category: 'Deportes ⚽',
     ),
   ];
@@ -139,7 +139,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
+                          child: Image.asset(
                             event.image,
                             width: 80,
                             height: 80,
@@ -552,7 +552,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                          child: Image.network(
+                          child: Image.asset(
                             event.image,
                             width: double.infinity,
                             height: 128,

@@ -445,7 +445,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       
                       // Mossos d'Esquadra
                       _buildPoliceCard(
-                        'https://picsum.photos/seed/mossos/400/200',
+                        'assets/images/generic_01.jpeg',
                         'ME',
                         'Mossos d\'Esquadra',
                         'Policía Autonómica (Cataluña)',
@@ -459,7 +459,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       
                       // Guàrdia Urbana
                       _buildPoliceCard(
-                        'https://picsum.photos/seed/guardiaurbana/400/200',
+                        'assets/images/generic_01.jpeg',
                         'GU',
                         'Guàrdia Urbana',
                         'Policía Local (Ayuntamiento)',
@@ -473,7 +473,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       
                       // Policía Nacional
                       _buildPoliceCard(
-                        'https://picsum.photos/seed/policianacional/400/200',
+                        'assets/images/generic_01.jpeg',
                         'CNP',
                         'Policía Nacional',
                         'Cuerpo Nacional',
@@ -487,7 +487,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       
                       // Guardia Civil
                       _buildPoliceCard(
-                        'https://picsum.photos/seed/guardiacivil/400/200',
+                        'assets/images/generic_01.jpeg',
                         'GC',
                         'Guardia Civil',
                         'Cuerpo Nacional (Militar)',
