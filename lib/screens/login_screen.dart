@@ -58,7 +58,7 @@ class LoginScreen extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/images/icono_foto.png',
+                        'assets/images/icono foto.png',
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
                         errorBuilder: (context, error, stackTrace) {
