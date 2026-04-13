@@ -83,7 +83,7 @@ class AppConstants {
       name: 'Sagrada Familia',
       category: 'Monumento',
       rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1598517522687-9755b7662c94?w=500&q=80',
+      image: 'assets/images/generic_01.jpeg',
       description: 'Obra maestra de Gaudí. Reserva con 2 semanas de antelación.',
     ),
     Attraction(
@@ -91,7 +91,7 @@ class AppConstants {
       name: 'Park Güell',
       category: 'Parque',
       rating: 4.7,
-      image: 'https://images.unsplash.com/photo-1523531294919-4bcd7c65e216?w=500&q=80',
+      image: 'assets/images/generic_02.jpeg',
       description: 'Vistas increíbles. Evita ir al mediodía por el calor.',
     ),
     Attraction(

@@ -119,18 +119,27 @@ class AppLayout extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: isHome
-            ? Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: CircleAvatar(
-                  backgroundImage: AssetImage('assets/images/carlos.jpeg'),
-                  radius: 20,
-                ),
-              )
-            : IconButton(
-                icon: const Text('🔙', style: TextStyle(fontSize: 24)),
-                onPressed: () => onNavigate(ScreenName.home),
+        leading: Row(
+          children: [
+            isHome
+                ? Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: CircleAvatar(
+                      backgroundImage: AssetImage('assets/images/carlos.jpeg'),
+                      radius: 20,
+                    ),
+                  )
+                : IconButton(
+                    icon: const Text('🔙', style: TextStyle(fontSize: 24)),
+                    onPressed: () => onNavigate(ScreenName.home),
+                  ),
+            if (onLogout != null)
+              IconButton(
+                icon: const Icon(Icons.logout, color: Color(0xFF64748B)),
+                onPressed: onLogout,
               ),
+          ],
+        ),
         title: isHome
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,11 +194,6 @@ class AppLayout extends StatelessWidget {
               ],
             ),
           ),
-          if (onLogout != null)
-            IconButton(
-              icon: const Icon(Icons.logout, color: Color(0xFF64748B)),
-              onPressed: onLogout,
-            ),
         ],
       ),
       body: SafeArea(
