@@ -1,46 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/types.dart' as types;
+import '../services/chat_service.dart';
+import '../services/user_service.dart';
 
 enum GroupTab { chats, groups, friends }
 
 enum GroupView { list, chat, createGroup, addFriend }
-
-class Friend {
-  final String id;
-  final String name;
-  final String avatar;
-  final String status;
-  final String username;
-  bool isSelected;
-
-  Friend({
-    required this.id,
-    required this.name,
-    required this.avatar,
-    required this.status,
-    required this.username,
-    this.isSelected = false,
-  });
-}
-
-class ChatItem {
-  final int id;
-  final String name;
-  final bool isGroup;
-  final String avatar;
-  final String lastMessage;
-  final String time;
-  final int unread;
-
-  ChatItem({
-    required this.id,
-    required this.name,
-    required this.isGroup,
-    required this.avatar,
-    required this.lastMessage,
-    required this.time,
-    required this.unread,
-  });
-}
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -52,26 +18,173 @@ class GroupsScreen extends StatefulWidget {
 class _GroupsScreenState extends State<GroupsScreen> {
   GroupTab _activeTab = GroupTab.chats;
   GroupView _activeView = GroupView.list;
-  int? _selectedChatId;
+  String? _selectedConversationId;
   String _searchQuery = '';
   bool _showAttachments = false;
-  String _groupName = '';
+  bool _isLoadingConversations = true;
 
-  final List<Friend> _friends = [
-    Friend(id: 'f1', name: 'Carlos M.', avatar: 'https://picsum.photos/60/60?random=2', status: 'online', username: '@carlos_bcn'),
-    Friend(id: 'f2', name: 'Laura S.', avatar: 'https://picsum.photos/60/60?random=4', status: 'offline', username: '@laura_travel'),
-    Friend(id: 'f3', name: 'Ana García', avatar: 'https://picsum.photos/60/60?random=10', status: 'online', username: '@ana_g'),
-    Friend(id: 'f4', name: 'Marc Vila', avatar: 'https://picsum.photos/60/60?random=11', status: 'online', username: '@marcvila'),
-  ];
+  // Services
+  final ChatService _chatService = ChatService();
+  final UserService _userService = UserService();
 
-  final List<ChatItem> _chats = [
-    ChatItem(id: 1, name: 'Ruta Gastronómica', isGroup: true, avatar: 'https://picsum.photos/60/60?random=1', lastMessage: 'Ana: ¿A qué hora quedamos mañana?', time: '10:42', unread: 2),
-    ChatItem(id: 2, name: 'Carlos M.', isGroup: false, avatar: 'https://picsum.photos/60/60?random=2', lastMessage: '¡Genial! Nos vemos allí.', time: 'Ayer', unread: 0),
-    ChatItem(id: 3, name: 'Familia López', isGroup: true, avatar: 'https://picsum.photos/60/60?random=3', lastMessage: 'Papá: He comprado las entradas para el Park Güell.', time: 'Ayer', unread: 0),
-    ChatItem(id: 4, name: 'Laura S.', isGroup: false, avatar: 'https://picsum.photos/60/60?random=4', lastMessage: '¿Me pasas el link del restaurante?', time: 'Lunes', unread: 0),
-  ];
+  // Controllers
+  final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _groupNameController = TextEditingController();
 
-  ChatItem? get _activeChat => _chats.firstWhere((c) => c.id == _selectedChatId, orElse: () => _chats.first);
+  // Data from Firebase
+  List<types.Conversation> _conversations = [];
+  List<types.Message> _messages = [];
+  List<types.UserProfile> _searchResults = [];
+  List<types.UserProfile> _friends = [];
+  List<types.FriendRequest> _pendingRequests = [];
+  Set<String> _selectedFriendIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeChat();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _searchController.dispose();
+    _groupNameController.dispose();
+    _chatService.stopConversationsPolling();
+    if (_selectedConversationId != null) {
+      _chatService.stopMessagesPolling(_selectedConversationId!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _initializeChat() async {
+    // Initialize user profile if needed
+    await _userService.initializeUserAfterAuth();
+    
+    // Start polling for conversations
+    await _chatService.startConversationsPolling();
+    
+    // Listen to conversation updates
+    _chatService.conversationsStream.listen((conversations) {
+      if (mounted) {
+        setState(() {
+          _conversations = conversations;
+          _isLoadingConversations = false;
+        });
+        print('📨 Conversations updated: ${conversations.length} conversations loaded');
+        for (var conv in conversations) {
+          print('  - ${conv.id}: ${conv.type} (${conv.participantIds.length} participants)');
+        }
+      }
+    });
+    
+    // Load friends
+    final friends = await _userService.getFriends();
+    if (mounted) {
+      setState(() {
+        _friends = friends;
+      });
+    }
+
+    // Load pending friend requests
+    final pendingRequests = await _userService.getPendingFriendRequests();
+    if (mounted) {
+      setState(() {
+        _pendingRequests = pendingRequests;
+      });
+    }
+  }
+
+  Future<void> _loadMessages(String conversationId) async {
+    await _chatService.startMessagesPolling(conversationId);
+    
+    _chatService.messagesStream(conversationId).listen((messages) {
+      if (mounted) {
+        setState(() {
+          _messages = messages;
+        });
+      }
+    });
+    
+    // Mark as read when opening chat
+    await _chatService.markAsRead(conversationId);
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _selectedConversationId == null) return;
+
+    _messageController.clear();
+    setState(() => _showAttachments = false);
+
+    await _chatService.sendMessage(
+      conversationId: _selectedConversationId!,
+      text: text,
+    );
+  }
+
+  types.Conversation? get _activeConversation {
+    if (_selectedConversationId == null) return null;
+    try {
+      return _conversations.firstWhere(
+        (c) => c.id == _selectedConversationId,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _searchFriends(String query) async {
+    if (query.length < 3) {
+      setState(() => _searchResults = []);
+      return;
+    }
+
+    final results = await _userService.searchUsersByEmail(query);
+    setState(() => _searchResults = results);
+  }
+
+  Future<void> _sendFriendRequest(String userId) async {
+    await _userService.sendFriendRequest(userId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Solicitud de amistad enviada')),
+    );
+  }
+
+  Future<void> _acceptFriendRequest(types.FriendRequest request) async {
+    final success = await _userService.acceptFriendRequest(request.id);
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitud aceptada'), backgroundColor: Colors.green),
+      );
+      // Reload friends and pending requests
+      final friends = await _userService.getFriends();
+      final pendingRequests = await _userService.getPendingFriendRequests();
+      if (mounted) {
+        setState(() {
+          _friends = friends;
+          _pendingRequests = pendingRequests;
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectFriendRequest(types.FriendRequest request) async {
+    final success = await _userService.rejectFriendRequest(request.id);
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitud rechazada')),
+      );
+      // Reload pending requests
+      final pendingRequests = await _userService.getPendingFriendRequests();
+      if (mounted) {
+        setState(() {
+          _pendingRequests = pendingRequests;
+        });
+      }
+    }
+  }
 
   // --- ADD FRIEND VIEW ---
   Widget _buildAddFriendView() {
@@ -132,8 +245,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     border: Border.all(color: Colors.grey[200]!, width: 2),
                   ),
                   child: TextField(
+                    controller: _searchController,
+                    onChanged: _searchFriends,
                     decoration: InputDecoration(
-                      hintText: 'Buscar por nombre o @usuario...',
+                      hintText: 'Buscar por email...',
                       hintStyle: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -144,91 +259,35 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                // Suggestions
-                Text(
-                  'SUGERENCIAS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.grey[400],
-                    letterSpacing: 1.2,
+                // Search results or Suggestions
+                if (_searchResults.isNotEmpty) ...[
+                  Text(
+                    'RESULTADOS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey[400],
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ...List.generate(3, (i) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey[100]!, width: 2),
+                  const SizedBox(height: 16),
+                  ..._searchResults.map((user) => _buildSearchResultCard(user)).toList(),
+                ] else ...[
+                  Text(
+                    'SUGERENCIAS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey[400],
+                      letterSpacing: 1.2,
                     ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(50),
-                          child: Image.network(
-                            'https://picsum.photos/50/50?random=${i + 20}',
-                            width: 48,
-                            height: 48,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 48,
-                                height: 48,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.person, color: Colors.grey),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Usuario Sugerido ${i + 1}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                              Text(
-                                '@usuario_${i + 1}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey[500],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('¡Solicitud de amistad enviada!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            setState(() => _activeView = GroupView.list);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.indigo[50],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.person_add, size: 20, color: Colors.indigo),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Busca usuarios por email',
+                    style: TextStyle(color: Colors.grey[400]),
+                  ),
+                ],
               ],
             ),
           ),
@@ -283,14 +342,46 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('¡Grupo creado!'),
-                          backgroundColor: Colors.green,
-                        ),
+                    onPressed: () async {
+                      if (_groupNameController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Ingresa un nombre para el grupo'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      if (_selectedFriendIds.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Selecciona al menos un amigo'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      final conversation = await _chatService.createGroupConversation(
+                        name: _groupNameController.text.trim(),
+                        participantIds: _selectedFriendIds.toList(),
                       );
-                      setState(() => _activeView = GroupView.list);
+
+                      if (conversation != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('¡Grupo creado!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        setState(() {
+                          _activeView = GroupView.list;
+                          _activeTab = GroupTab.groups;
+                          _groupNameController.clear();
+                          _selectedFriendIds.clear();
+                        });
+                      }
                     },
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.indigo,
@@ -358,7 +449,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         border: Border.all(color: Colors.grey[200]!, width: 2),
                       ),
                       child: TextField(
-                        onChanged: (value) => setState(() => _groupName = value),
+                        controller: _groupNameController,
                         textAlign: TextAlign.center,
                         decoration: const InputDecoration(
                           hintText: 'Nombre del grupo',
@@ -405,6 +496,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
                 // Friends List
                 ..._friends.map((friend) {
+                  final isSelected = _selectedFriendIds.contains(friend.id);
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
@@ -415,21 +507,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                     child: Row(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(50),
-                          child: Image.network(
-                            friend.avatar,
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 40,
-                                height: 40,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.person, color: Colors.grey),
-                              );
-                            },
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.indigo[100],
+                          child: Text(
+                            friend.name[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.indigo,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -445,7 +531,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                                 ),
                               ),
                               Text(
-                                friend.username,
+                                friend.email,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -456,9 +542,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           ),
                         ),
                         Checkbox(
-                          value: friend.isSelected,
+                          value: isSelected,
                           onChanged: (value) {
-                            setState(() => friend.isSelected = value ?? false);
+                            setState(() {
+                              if (value == true) {
+                                _selectedFriendIds.add(friend.id);
+                              } else {
+                                _selectedFriendIds.remove(friend.id);
+                              }
+                            });
                           },
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
@@ -479,9 +571,26 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   // --- CHAT VIEW ---
   Widget _buildChatView() {
-    if (_selectedChatId == null) return const SizedBox.shrink();
+    if (_selectedConversationId == null) return const SizedBox.shrink();
 
-    final chat = _activeChat!;
+    final conversation = _activeConversation;
+    if (conversation == null) return const SizedBox.shrink();
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    
+    // Get conversation name and other user ID
+    String conversationName = 'Chat';
+    String? otherUserId;
+    
+    if (conversation.type == 'group') {
+      conversationName = conversation.groupMetadata?.name ?? 'Grupo';
+    } else {
+      // For 1-1 chats, get the other user's ID
+      otherUserId = conversation.participantIds.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -509,10 +618,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(50),
-                      onTap: () => setState(() {
-                        _selectedChatId = null;
-                        _activeView = GroupView.list;
-                      }),
+                      onTap: () {
+                        _chatService.stopMessagesPolling(_selectedConversationId!);
+                        setState(() {
+                          _selectedConversationId = null;
+                          _activeView = GroupView.list;
+                        });
+                      },
                       child: Padding(
                         padding: const EdgeInsets.all(8),
                         child: Icon(Icons.chevron_left, size: 28, color: Colors.grey[600]),
@@ -520,37 +632,63 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(50),
-                    child: Image.network(
-                      chat.avatar,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 40,
-                          height: 40,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.person, color: Colors.grey),
+                  // Avatar - show user initial for 1-1, group initial for groups
+                  if (otherUserId != null && otherUserId.isNotEmpty)
+                    FutureBuilder<types.UserProfile?>(
+                      future: _userService.getUserProfile(otherUserId),
+                      builder: (context, snapshot) {
+                        final userName = snapshot.data?.name ?? 'U';
+                        return CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.indigo,
+                          child: Text(
+                            userName[0].toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
                         );
                       },
+                    )
+                  else
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.indigo,
+                      child: Text(
+                        conversationName[0].toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          chat.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
+                        // Show user name for 1-1 chats, group name for groups
+                        if (otherUserId != null && otherUserId.isNotEmpty)
+                          FutureBuilder<types.UserProfile?>(
+                            future: _userService.getUserProfile(otherUserId),
+                            builder: (context, snapshot) {
+                              final userName = snapshot.data?.name ?? 'Usuario';
+                              return Text(
+                                userName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              );
+                            },
+                          )
+                        else
+                          Text(
+                            conversationName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1E293B),
+                            ),
                           ),
-                        ),
                         Text(
-                          chat.isGroup ? '5 miembros' : 'En línea',
+                          conversation.type == 'group' 
+                            ? '${conversation.participantIds.length} miembros'
+                            : 'Activo',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -571,137 +709,104 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
           // Messages
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Date divider
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    child: Text(
-                      'HOY',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[500],
-                        letterSpacing: 1,
-                      ),
-                    ),
+            child: _messages.isEmpty
+              ? Center(
+                  child: Text(
+                    'No hay mensajes aún',
+                    style: TextStyle(color: Colors.grey[400]),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Message from other
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey[200]!),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
-                        bottomRight: Radius.circular(16),
-                        bottomLeft: Radius.circular(4),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (chat.isGroup)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              'Ana',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.indigo,
-                              ),
+                )
+              : ListView.builder(
+                  reverse: true,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _messages.length,
+                  itemBuilder: (context, index) {
+                    final message = _messages[_messages.length - 1 - index];
+                    final isMe = message.senderId == currentUserId;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 300),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.indigo : Colors.white,
+                            border: isMe ? null : Border.all(color: Colors.grey[200]!),
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(16),
+                              topRight: const Radius.circular(16),
+                              bottomLeft: Radius.circular(isMe ? 16 : 4),
+                              bottomRight: Radius.circular(isMe ? 4 : 16),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
-                        const Text(
-                          '¿A qué hora quedamos mañana?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF334155),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                message.text ?? '',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isMe ? Colors.white : const Color(0xFF334155),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _formatTime(message.timestamp),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isMe ? Colors.indigo[200] : Colors.grey[400],
+                                    ),
+                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 4),
+                                    _buildMessageStatus(message.status),
+                                  ],
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '10:42',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Message from me
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16), bottomLeft: Radius.circular(16),
-                        bottomRight: Radius.circular(4),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Yo creo que sobre las 10:00 en la plaza está bien.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '10:45',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.indigo[200],
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
+                    );
+                  },
+                ),
+          ),
+
+          // Typing indicator
+          StreamBuilder<bool>(
+            stream: _chatService.getTypingStatus(_selectedConversationId!),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data == true) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '... está escribiendo',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
           ),
 
           // Input Area
@@ -761,6 +866,19 @@ class _GroupsScreenState extends State<GroupsScreen> {
                             borderRadius: BorderRadius.circular(50),
                           ),
                           child: TextField(
+                            controller: _messageController,
+                            onChanged: (text) {
+                              if (text.isNotEmpty) {
+                                _chatService.updateTypingStatus(_selectedConversationId!, true);
+                                // Stop typing after 2 seconds of inactivity
+                                Future.delayed(const Duration(seconds: 2), () {
+                                  if (_messageController.text == text) {
+                                    _chatService.updateTypingStatus(_selectedConversationId!, false);
+                                  }
+                                });
+                              }
+                            },
+                            onSubmitted: (_) => _sendMessage(),
                             decoration: InputDecoration(
                               hintText: 'Escribe un mensaje...',
                               hintStyle: TextStyle(
@@ -780,19 +898,22 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.indigo,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.indigo.withOpacity(0.3),
-                              blurRadius: 4,
-                            ),
-                          ],
+                      GestureDetector(
+                        onTap: _sendMessage,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.indigo.withOpacity(0.3),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.send, size: 18, color: Colors.white),
                         ),
-                        child: const Icon(Icons.send, size: 18, color: Colors.white),
                       ),
                     ],
                   ),
@@ -839,17 +960,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
       return _buildAddFriendView();
     }
 
-    // Filter chats based on tab and search
-    final filteredChats = _chats.where((chat) {
-      final matchesSearch = chat.name.toLowerCase().contains(_searchQuery.toLowerCase());
-      if (_activeTab == GroupTab.groups) return chat.isGroup && matchesSearch;
+    // Filter conversations based on tab and search
+    final filteredConversations = _conversations.where((conversation) {
+      final conversationName = conversation.type == 'group'
+          ? (conversation.groupMetadata?.name ?? 'Grupo')
+          : 'Usuario'; // TODO: Fetch from UserService
+      final matchesSearch = conversationName.toLowerCase().contains(_searchQuery.toLowerCase());
+      
+      if (_activeTab == GroupTab.groups) return conversation.type == 'group' && matchesSearch;
       if (_activeTab == GroupTab.chats) return matchesSearch;
       return false;
     }).toList();
 
     final filteredFriends = _friends.where((friend) {
       return friend.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          friend.username.toLowerCase().contains(_searchQuery.toLowerCase());
+          friend.email.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
     return SingleChildScrollView(
@@ -931,11 +1056,37 @@ class _GroupsScreenState extends State<GroupsScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Pending Friend Requests (only in Friends tab)
+            if (_activeTab == GroupTab.friends && _pendingRequests.isNotEmpty) ...[
+              Text(
+                'SOLICITUDES PENDIENTES',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.orange[400],
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ..._pendingRequests.map((request) => _buildFriendRequestCard(request)).toList(),
+              const SizedBox(height: 24),
+              Text(
+                'MIS AMIGOS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.grey[400],
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
             // Content
             if (_activeTab == GroupTab.friends)
               ...filteredFriends.map((friend) => _buildFriendCard(friend)).toList()
             else
-              ...filteredChats.map((chat) => _buildChatCard(chat)).toList(),
+              ...filteredConversations.map((conversation) => _buildChatCard(conversation)).toList(),
 
             // Empty state
             if (_activeTab == GroupTab.friends && filteredFriends.isEmpty)
@@ -965,6 +1116,119 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       onPressed: () => setState(() => _activeView = GroupView.addFriend),
                       child: const Text(
                         'AÑADIR MI PRIMER AMIGO',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.indigo,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            // Loading indicator for Chats
+            if (_activeTab == GroupTab.chats && _isLoadingConversations && filteredConversations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  children: [
+                    _buildLoadingDots(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cargando conversaciones...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            // Empty state for Chats
+            if (_activeTab == GroupTab.chats && !_isLoadingConversations && filteredConversations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.chat_bubble_outline, size: 40, color: Colors.grey[300]),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No hay conversaciones aún',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Añade amigos y empieza a chatear',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Loading indicator for Groups
+            if (_activeTab == GroupTab.groups && _isLoadingConversations && filteredConversations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  children: [
+                    _buildLoadingDots(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cargando grupos...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Empty state for Groups
+            if (_activeTab == GroupTab.groups && !_isLoadingConversations && filteredConversations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.group_outlined, size: 40, color: Colors.grey[300]),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No tienes grupos aún',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => setState(() => _activeView = GroupView.createGroup),
+                      child: const Text(
+                        'CREAR MI PRIMER GRUPO',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
@@ -1016,9 +1280,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  Widget _buildFriendCard(Friend friend) {
+  Widget _buildFriendCard(types.UserProfile friend) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () async {
+        // Create or get existing conversation
+        final conversation = await _chatService.createDirectConversation(friend.id);
+        if (conversation != null) {
+          setState(() {
+            _selectedConversationId = conversation.id;
+            _activeView = GroupView.chat;
+            _activeTab = GroupTab.chats;
+          });
+          _loadMessages(conversation.id);
+        }
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -1031,21 +1306,16 @@ class _GroupsScreenState extends State<GroupsScreen> {
           children: [
             Stack(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(50),
-                  child: Image.network(
-                    friend.avatar,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 56,
-                        height: 56,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.person, color: Colors.grey),
-                      );
-                    },
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.indigo[100],
+                  child: Text(
+                    friend.name[0].toUpperCase(),
+                    style: TextStyle(
+                      color: Colors.indigo,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
                   ),
                 ),
                 Positioned(
@@ -1076,7 +1346,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                   ),
                   Text(
-                    friend.username,
+                    friend.email,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -1092,7 +1362,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 color: Colors.grey[50],
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.send, size: 18, color: Colors.grey[400]),
+              child: Icon(Icons.chat, size: 18, color: Colors.grey[400]),
             ),
           ],
         ),
@@ -1100,13 +1370,30 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  Widget _buildChatCard(ChatItem chat) {
+  Widget _buildChatCard(types.Conversation conversation) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final unreadCount = conversation.unreadCounts[currentUserId] ?? 0;
+    
+    String conversationName = 'Chat';
+    String? otherUserId;
+    
+    if (conversation.type == 'group') {
+      conversationName = conversation.groupMetadata?.name ?? 'Grupo';
+    } else {
+      // For 1-1 chats, get the other user's ID
+      otherUserId = conversation.participantIds.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+    }
+    
     return GestureDetector(
       onTap: () {
         setState(() {
-          _selectedChatId = chat.id;
+          _selectedConversationId = conversation.id;
           _activeView = GroupView.chat;
         });
+        _loadMessages(conversation.id);
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -1120,24 +1407,40 @@ class _GroupsScreenState extends State<GroupsScreen> {
           children: [
             Stack(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(50),
-                  child: Image.network(
-                    chat.avatar,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 56,
-                        height: 56,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.person, color: Colors.grey),
+                // Avatar - show user initial for 1-1, group initial for groups
+                if (otherUserId != null && otherUserId.isNotEmpty)
+                  FutureBuilder<types.UserProfile?>(
+                    future: _userService.getUserProfile(otherUserId),
+                    builder: (context, snapshot) {
+                      final userName = snapshot.data?.name ?? 'U';
+                      return CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Colors.indigo,
+                        child: Text(
+                          userName[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
                       );
                     },
+                  )
+                else
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.indigo,
+                    child: Text(
+                      conversationName[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
                   ),
-                ),
-                if (chat.isGroup)
+                if (conversation.type == 'group')
                   Positioned(
                     bottom: -2,
                     right: -2,
@@ -1162,18 +1465,35 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          chat.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: otherUserId != null && otherUserId.isNotEmpty
+                          ? FutureBuilder<types.UserProfile?>(
+                              future: _userService.getUserProfile(otherUserId),
+                              builder: (context, snapshot) {
+                                final userName = snapshot.data?.name ?? 'Usuario';
+                                return Text(
+                                  userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
+                            )
+                          : Text(
+                              conversationName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1E293B),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        chat.time,
+                        conversation.lastMessageTime != null
+                            ? _formatTime(conversation.lastMessageTime!)
+                            : '',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -1184,19 +1504,19 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    chat.lastMessage,
+                    conversation.lastMessage ?? 'Sin mensajes',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: chat.unread > 0 ? FontWeight.bold : FontWeight.w500,
-                      color: chat.unread > 0 ? const Color(0xFF334155) : Colors.grey[500],
+                      fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.w500,
+                      color: unreadCount > 0 ? const Color(0xFF334155) : Colors.grey[500],
                     ),
                   ),
                 ],
               ),
             ),
-            if (chat.unread > 0) ...[
+            if (unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
                 width: 24,
@@ -1207,7 +1527,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    chat.unread.toString(),
+                    unreadCount.toString(),
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -1220,6 +1540,245 @@ class _GroupsScreenState extends State<GroupsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFriendRequestCard(types.FriendRequest request) {
+    return FutureBuilder<types.UserProfile?>(
+      future: _userService.getUserProfile(request.fromUserId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.orange[100]!, width: 2),
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final user = snapshot.data!;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange[50],
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.orange[100]!, width: 2),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.orange[100],
+                child: Text(
+                  user.name[0].toUpperCase(),
+                  style: TextStyle(
+                    color: Colors.orange[700],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      user.email,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: () => _acceptFriendRequest(request),
+                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    tooltip: 'Aceptar',
+                  ),
+                  IconButton(
+                    onPressed: () => _rejectFriendRequest(request),
+                    icon: Icon(Icons.cancel, color: Colors.grey[400]),
+                    tooltip: 'Rechazar',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchResultCard(types.UserProfile user) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey[100]!, width: 2),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.indigo[100],
+            child: Text(
+              user.name[0].toUpperCase(),
+              style: TextStyle(
+                color: Colors.indigo,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                Text(
+                  user.email,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => _sendFriendRequest(user.id),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text(
+              'Añadir',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 1) {
+      return 'Ahora';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}min';
+    } else if (difference.inHours < 24) {
+      return '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays < 7) {
+      final days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+      return days[timestamp.weekday - 1];
+    } else {
+      return '${timestamp.day}/${timestamp.month}';
+    }
+  }
+
+  Widget _buildMessageStatus(types.MessageStatus status) {
+    switch (status) {
+      case types.MessageStatus.sent:
+        return Icon(Icons.check, size: 14, color: Colors.indigo[200]);
+      case types.MessageStatus.delivered:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check, size: 14, color: Colors.indigo[200]),
+            Transform.translate(
+              offset: const Offset(-4, 0),
+              child: Icon(Icons.check, size: 14, color: Colors.indigo[200]),
+            ),
+          ],
+        );
+      case types.MessageStatus.read:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check, size: 14, color: Colors.lightBlueAccent),
+            Transform.translate(
+              offset: const Offset(-4, 0),
+              child: const Icon(Icons.check, size: 14, color: Colors.lightBlueAccent),
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildLoadingDots() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 1500),
+      builder: (context, value, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final delay = index * 0.33;
+            final animValue = (value - delay).clamp(0.0, 1.0);
+            final opacity = (animValue < 0.5)
+                ? animValue * 2
+                : (1.0 - animValue) * 2;
+            
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Opacity(
+                opacity: opacity,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.indigo,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+      onEnd: () {
+        // Restart animation
+        if (mounted) setState(() {});
+      },
     );
   }
 }

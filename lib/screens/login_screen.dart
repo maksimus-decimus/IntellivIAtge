@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // 1. Added Firebase Auth
 import '../widgets/bouncy_button.dart';
+import '../services/user_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -32,6 +33,9 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      // Create/update user profile and set online status
+      await UserService().createOrUpdateUserProfile();
+      await UserService().setOnline();
       // Success! The StreamBuilder in main.dart will handle the switch.
     } on FirebaseAuthException catch (e) {
       String message = 'Ocurrió un error';
@@ -77,6 +81,9 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      // Create user profile in Firestore
+      await UserService().createOrUpdateUserProfile();
+      await UserService().setOnline();
       // Success! Show welcome message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
