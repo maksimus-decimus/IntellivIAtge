@@ -20,8 +20,9 @@ dependencies:
   # AI Services
   http: ^1.2.0
   
-  # Authentication & Backend
-  supabase_flutter: ^2.0.0
+  # Firebase
+  firebase_core: ^2.24.0
+  firebase_auth: ^4.15.0
   
   # Utilities
   intl: ^0.19.0

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'models/types.dart';
 import 'services/ollama_service.dart';
-import 'services/supabase_service.dart';
+import 'services/firebase_service.dart';
 import 'widgets/app_layout.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -23,8 +25,15 @@ import 'screens/first_time_guide_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Supabase
-  await SupabaseService().initialize();
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseService().initialize();
+  } catch (e) {
+    print('⚠️ Error inicializando Firebase: $e');
+  }
   
   // Set status bar style
   SystemChrome.setSystemUIOverlayStyle(
@@ -78,12 +87,26 @@ class _MainScreenState extends State<MainScreen> {
   ];
   
   late final OllamaService _ollamaService;
+  late final FirebaseService _firebaseService;
 
   @override
   void initState() {
     super.initState();
-    // Initialize Ollama Service (local model)
+    // Initialize services
     _ollamaService = OllamaService();
+    _firebaseService = FirebaseService();
+    
+    // Check if user is already logged in
+    _checkAuthStatus();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    final user = _firebaseService.getCurrentUser();
+    if (user != null && mounted) {
+      setState(() {
+        _currentScreen = ScreenName.home;
+      });
+    }
   }
 
   void _handleLogin() {
@@ -93,6 +116,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _handleLogout() {
+    _firebaseService.signOut();
     setState(() {
       _currentScreen = ScreenName.login;
     });

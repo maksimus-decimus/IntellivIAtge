@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/bouncy_button.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -17,14 +17,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isSignUp = false;
   String? _errorMessage;
-  late final SupabaseService _supabaseService;
+  late final FirebaseService _firebaseService;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
-    _supabaseService = SupabaseService();
+    _firebaseService = FirebaseService();
   }
 
   @override
@@ -54,26 +54,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (_isSignUp) {
         // Sign up
-        final success = await _supabaseService.signUp(email, password);
+        final success = await _firebaseService.signUp(email, password);
         if (success) {
           setState(() {
-            _errorMessage = '¡Cuenta creada! Por favor inicia sesión';
+            _errorMessage = '✅ ¡Cuenta creada! Por favor inicia sesión';
             _isSignUp = false;
+            _emailController.clear();
             _passwordController.clear();
           });
         } else {
           setState(() {
-            _errorMessage = 'Error al registrarse. El email ya existe.';
+            _errorMessage = '❌ Error al registrarse. Intenta con otro email.';
           });
         }
       } else {
         // Sign in
-        final success = await _supabaseService.signIn(email, password);
+        final success = await _firebaseService.signIn(email, password);
         if (success) {
           widget.onLogin();
         } else {
           setState(() {
-            _errorMessage = 'Email o contraseña incorrectos';
+            _errorMessage = '❌ Email o contraseña incorrectos';
           });
         }
       }
@@ -92,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isSignUp = !_isSignUp;
       _errorMessage = null;
+      _emailController.clear();
       _passwordController.clear();
     });
   }
@@ -185,14 +187,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEE2E2),
+                        color: _errorMessage!.contains('¡Cuenta creada')
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFFEE2E2),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                        border: Border.all(
+                          color: _errorMessage!.contains('¡Cuenta creada')
+                              ? const Color(0xFF6EE7B7)
+                              : const Color(0xFFFCA5A5),
+                        ),
                       ),
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(
-                          color: Color(0xFFDC2626),
+                        style: TextStyle(
+                          color: _errorMessage!.contains('¡Cuenta creada')
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFDC2626),
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -271,7 +281,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Login Button
+                  // Login/Sign Up Button
                   BouncyButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     fullWidth: true,
@@ -286,129 +296,74 @@ class _LoginScreenState extends State<LoginScreen> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text('¡Vamos allá!'),
+                        : Text(_isSignUp ? '¡Registrarse!' : '¡Vamos allá!'),
                   ),
-                  const SizedBox(height: 32),
-                  // Divider
-                  Row(
-                    children: const [
-                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'O CONTINÚA CON',
-                          style: TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Social Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: BouncyButton(
-                          onPressed: _isLoading ? null : () {},
-                          color: Colors.white,
-                          shadowColor: const Color(0xFFE2E8F0),
-                          child: const Text(
-                            'Google',
-                            style: TextStyle(color: Color(0xFF334155)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: BouncyButton(
-                          onPressed: _isLoading ? null : () {},
-                          color: Colors.white,
-                          shadowColor: const Color(0xFFE2E8F0),
-                          child: const Text(
-                            'Apple',
-                            style: TextStyle(color: Color(0xFF334155)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-                          width: 2,
-                        ),
+                  const SizedBox(height: 16),
+                  // Toggle Sign Up/Login
+                  GestureDetector(
+                    onTap: _isLoading ? null : _toggleAuthMode,
+                    child: Text(
+                      _isSignUp
+                          ? '¿Ya tienes cuenta? Inicia sesión'
+                          : '¿No tienes cuenta? Regístrate',
+                      style: const TextStyle(
+                        color: Color(0xFF0EA5E9),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        decoration: TextDecoration.underline,
                       ),
                     ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF334155),
+                  ),
+                  const SizedBox(height: 16),
+                  // Divider (only show on login)
+                  if (!_isSignUp) ...[
+                    Row(
+                      children: const [
+                        Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'O CONTINÚA CON',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Login Button
-                  BouncyButton(
-                    onPressed: onLogin,
-                    fullWidth: true,
-                    child: const Text('¡Vamos allá!'),
-                  ),
-                  const SizedBox(height: 32),
-                  // Divider
-                  Row(
-                    children: const [
-                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'O CONTINÚA CON',
-                          style: TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                    const SizedBox(height: 24),
+                    // Social Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: BouncyButton(
+                            onPressed: _isLoading ? null : () {},
+                            color: Colors.white,
+                            shadowColor: const Color(0xFFE2E8F0),
+                            child: const Text(
+                              'Google',
+                              style: TextStyle(color: Color(0xFF334155)),
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Social Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: BouncyButton(
-                          onPressed: onLogin,
-                          color: Colors.white,
-                          shadowColor: const Color(0xFFE2E8F0),
-                          child: const Text(
-                            'Google',
-                            style: TextStyle(color: Color(0xFF334155)),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: BouncyButton(
+                            onPressed: _isLoading ? null : () {},
+                            color: Colors.white,
+                            shadowColor: const Color(0xFFE2E8F0),
+                            child: const Text(
+                              'Apple',
+                              style: TextStyle(color: Color(0xFF334155)),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: BouncyButton(
-                          onPressed: onLogin,
-                          color: Colors.white,
-                          shadowColor: const Color(0xFFE2E8F0),
-                          child: const Text(
-                            'Apple',
-                            style: TextStyle(color: Color(0xFF334155)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
