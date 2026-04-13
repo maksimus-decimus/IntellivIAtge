@@ -5,6 +5,7 @@ class AppLayout extends StatelessWidget {
   final Widget child;
   final ScreenName currentScreen;
   final Function(ScreenName) onNavigate;
+  final VoidCallback? onLogout;
   final String? title;
   final List<ScreenName> shortcuts;
 
@@ -13,6 +14,7 @@ class AppLayout extends StatelessWidget {
     required this.child,
     required this.currentScreen,
     required this.onNavigate,
+    this.onLogout,
     this.title,
     this.shortcuts = const [],
   }) : super(key: key);
@@ -183,6 +185,11 @@ class AppLayout extends StatelessWidget {
               ],
             ),
           ),
+          if (onLogout != null)
+            IconButton(
+              icon: const Icon(Icons.logout, color: Color(0xFF64748B)),
+              onPressed: onLogout,
+            ),
         ],
       ),
       body: SafeArea(

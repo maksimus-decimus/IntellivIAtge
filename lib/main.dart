@@ -183,6 +183,7 @@ class _MainScreenState extends State<MainScreen> {
     return AppLayout(
       currentScreen: _currentScreen,
       onNavigate: _handleNavigate,
+      onLogout: _handleLogout,
       title: _getScreenTitle(_currentScreen),
       shortcuts: _shortcuts,
       child: _buildScreen(),
