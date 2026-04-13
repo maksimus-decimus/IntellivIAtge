@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true; // NEW
 
   @override
   void dispose() {
@@ -50,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // 3b. Firebase Registration Logic
   Future<void> _signUp() async {
     // Validation
-    if (_emailController.text.trim().isEmpty || 
+    if (_emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -177,11 +178,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 5. Password Input (Added Controller)
+                  // 5. Password Input with eye button
                   TextField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: _inputStyle('Contraseña'),
+                    obscureText: _obscurePassword, // CHANGED
+                    decoration: _inputStyle('Contraseña').copyWith(
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                        },
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
