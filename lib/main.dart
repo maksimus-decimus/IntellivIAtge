@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'models/types.dart';
 import 'services/ollama_service.dart';
+import 'services/supabase_service.dart';
 import 'widgets/app_layout.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -19,8 +20,11 @@ import 'screens/security_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/first_time_guide_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Supabase
+  await SupabaseService().initialize();
   
   // Set status bar style
   SystemChrome.setSystemUIOverlayStyle(

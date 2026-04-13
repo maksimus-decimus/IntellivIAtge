@@ -214,6 +214,56 @@ class AppConstants {
         RecommendedRestaurant(name: '7 Portes', address: 'Passeig d\'Isabel II, 14', rating: 4.5),
       ],
     ),
+    Dish(
+      id: 'd4',
+      name: 'Cocido Madrileño',
+      description: 'El plato más tradicional de Madrid. Garbanzos, carnes y verduras en caldo. ¡Reconfortante!',
+      image: '🍲',
+      isVegetarian: false,
+      isSpicy: false,
+      photoUrl: 'assets/images/cocido_madrileno.jpeg',
+      reviews: [
+        Review(
+          user: 'Rosa G.',
+          comment: 'Auténtico cocido madrileño. Los garbanzos están en su punto. ¡Delicioso!',
+          rating: 5,
+        ),
+        Review(
+          user: 'Miguel R.',
+          comment: 'Plato contundente y sabroso. Perfecto para días fríos.',
+          rating: 4,
+        ),
+      ],
+      recommendedRestaurants: [
+        RecommendedRestaurant(name: 'Casa Lucio', address: 'Calle Cava Baja, 35', rating: 4.5),
+        RecommendedRestaurant(name: 'Restaurante Sobrino de Botín', address: 'Cuchilleros, 17', rating: 4.6),
+      ],
+    ),
+    Dish(
+      id: 'd5',
+      name: 'Arroz a Horno',
+      description: 'Arroz cocinado en horno con carne, chorizo y caldo. Tradicional de la Comunidad Valenciana.',
+      image: '🍚',
+      isVegetarian: false,
+      isSpicy: false,
+      photoUrl: 'assets/images/arroz-al-horno.jpg',
+      reviews: [
+        Review(
+          user: 'Anna V.',
+          comment: 'Un arroz espectacular con esa costra crujiente. ¡Excelente!',
+          rating: 5,
+        ),
+        Review(
+          user: 'Fernando S.',
+          comment: 'Demasado sabroso, con los puntos justos de cocción. Muy recomendado.',
+          rating: 5,
+        ),
+      ],
+      recommendedRestaurants: [
+        RecommendedRestaurant(name: 'Casa Montaña', address: 'Carrer de Sant Carles, 7', rating: 4.4),
+        RecommendedRestaurant(name: '7 Portes', address: 'Passeig d\'Isabel II, 14', rating: 4.5),
+      ],
+    ),
   ];
 
   // Top Restaurants

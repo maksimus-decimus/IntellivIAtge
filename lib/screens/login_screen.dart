@@ -1,10 +1,100 @@
 import 'package:flutter/material.dart';
 import '../widgets/bouncy_button.dart';
+import '../services/supabase_service.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
 
   const LoginScreen({Key? key, required this.onLogin}) : super(key: key);
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  late TextEditingController _emailController;
+  late TextEditingController _passwordController;
+  bool _isLoading = false;
+  bool _isSignUp = false;
+  String? _errorMessage;
+  late final SupabaseService _supabaseService;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    _supabaseService = SupabaseService();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      if (email.isEmpty || password.isEmpty) {
+        setState(() {
+          _errorMessage = 'Por favor completa todos los campos';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (_isSignUp) {
+        // Sign up
+        final success = await _supabaseService.signUp(email, password);
+        if (success) {
+          setState(() {
+            _errorMessage = '¡Cuenta creada! Por favor inicia sesión';
+            _isSignUp = false;
+            _passwordController.clear();
+          });
+        } else {
+          setState(() {
+            _errorMessage = 'Error al registrarse. El email ya existe.';
+          });
+        }
+      } else {
+        // Sign in
+        final success = await _supabaseService.signIn(email, password);
+        if (success) {
+          widget.onLogin();
+        } else {
+          setState(() {
+            _errorMessage = 'Email o contraseña incorrectos';
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _toggleAuthMode() {
+    setState(() {
+      _isSignUp = !_isSignUp;
+      _errorMessage = null;
+      _passwordController.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,8 +179,29 @@ class LoginScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
+                  // Error Message
+                  if (_errorMessage != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   // Email Input
                   TextField(
+                    controller: _emailController,
+                    enabled: !_isLoading,
                     decoration: InputDecoration(
                       hintText: 'Correo electrónico',
                       filled: true,
@@ -125,6 +236,8 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   // Password Input
                   TextField(
+                    controller: _passwordController,
+                    enabled: !_isLoading,
                     obscureText: true,
                     decoration: InputDecoration(
                       hintText: 'Contraseña',
@@ -148,6 +261,90 @@ class LoginScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         borderSide: const BorderSide(
                           color: Color(0xFF0EA5E9),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Login Button
+                  BouncyButton(
+                    onPressed: _isLoading ? null : _handleLogin,
+                    fullWidth: true,
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF1E293B),
+                              ),
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('¡Vamos allá!'),
+                  ),
+                  const SizedBox(height: 32),
+                  // Divider
+                  Row(
+                    children: const [
+                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'O CONTINÚA CON',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Social Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: BouncyButton(
+                          onPressed: _isLoading ? null : () {},
+                          color: Colors.white,
+                          shadowColor: const Color(0xFFE2E8F0),
+                          child: const Text(
+                            'Google',
+                            style: TextStyle(color: Color(0xFF334155)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: BouncyButton(
+                          onPressed: _isLoading ? null : () {},
+                          color: Colors.white,
+                          shadowColor: const Color(0xFFE2E8F0),
+                          child: const Text(
+                            'Apple',
+                            style: TextStyle(color: Color(0xFF334155)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
                           width: 2,
                         ),
                       ),
