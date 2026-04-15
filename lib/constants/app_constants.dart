@@ -99,7 +99,7 @@ class AppConstants {
       name: 'Casa Batlló',
       category: 'Arquitectura',
       rating: 4.8,
-      image: 'https://images.unsplash.com/photo-1558237300-4b102283a215?w=500&q=80',
+      image: 'assets/images/Barcelona, Casa Batlló - copia.jpeg',
       description: 'La casa del dragón. La audioguía es fascinante.',
     ),
     Attraction(
@@ -107,8 +107,16 @@ class AppConstants {
       name: 'La Boquería',
       category: 'Mercado',
       rating: 4.5,
-      image: 'https://images.unsplash.com/photo-1542323568-d05051061905?w=500&q=80',
+      image: 'assets/images/Mercat de la Boqueria - copia.jpeg',
       description: 'Colores y sabores en Las Ramblas. Prueba los zumos.',
+    ),
+    Attraction(
+      id: '5',
+      name: 'Camp Nou - Concierto Spotify',
+      category: 'Eventos',
+      rating: 4.8,
+      image: 'assets/images/Spotify camp nou stadium - copia.jpeg',
+      description: 'Disfruta de conciertos y eventos en el legendario Camp Nou. ¡Atmosphere única!',
     ),
   ];
 
@@ -160,7 +168,7 @@ class AppConstants {
       image: '🥘',
       isVegetarian: false,
       isSpicy: false,
-      photoUrl: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a?w=800&q=80',
+      photoUrl: 'assets/images/paella - copia.jpeg',
       reviews: [
         Review(
           user: 'María S.',
@@ -180,11 +188,31 @@ class AppConstants {
     ),
     Dish(
       id: 'd2',
+      name: 'Tortilla de Patatas',
+      description: 'El clásico español. Papa, huevo y cebolla. ¡Simple pero delicioso!',
+      image: '🥚',
+      isVegetarian: true,
+      isSpicy: false,
+      photoUrl: 'assets/images/La regla de Karlos Arguiñano para la tortilla de patatas perfecta - copia.jpeg',
+      reviews: [
+        Review(
+          user: 'Carlos P.',
+          comment: 'La mejor tortilla que he probado. Punto de cocción perfecto.',
+          rating: 5,
+        ),
+      ],
+      recommendedRestaurants: [
+        RecommendedRestaurant(name: 'El Xampanyet', address: 'Carrer de Mont carles, 22', rating: 4.3),
+      ],
+    ),
+    Dish(
+      id: 'd3',
       name: 'Pan con Tomate',
       description: 'El clásico desayuno o acompañamiento. Pan, tomate, aceite y sal.',
       image: '🍞',
       isVegetarian: true,
       isSpicy: false,
+      photoUrl: 'assets/images/Pa amb Tomàquet (Catalan Tomato Bread) - copia.jpeg',
       reviews: [],
       recommendedRestaurants: [],
     ),
@@ -236,7 +264,7 @@ class AppConstants {
       id: 1,
       user: 'Ana G.',
       handle: '@anag_travels',
-      avatar: 'https://picsum.photos/40/40?random=21',
+      avatar: 'assets/images/laura.jpeg',
       place: 'Sagrada Familia',
       rating: 5,
       comment: '¡Impresionante! Recomiendo ir a primera hora para evitar las multitudes. La luz de la mañana en las vidrieras es mágica. ✨',
@@ -246,7 +274,7 @@ class AppConstants {
       id: 2,
       user: 'Carlos M.',
       handle: '@carlos_bcn',
-      avatar: 'https://picsum.photos/40/40?random=22',
+      avatar: 'assets/images/carlos.jpeg',
       place: 'Restaurante El Xampanyet',
       rating: 4,
       comment: 'Muy buenas tapas, pero siempre está a tope. Paciencia para encontrar sitio, vale la pena probar el cava. 🥂',
@@ -256,11 +284,49 @@ class AppConstants {
       id: 3,
       user: 'Laura S.',
       handle: '@laura_wander',
-      avatar: 'https://picsum.photos/40/40?random=23',
+      avatar: 'assets/images/laura.jpeg',
       place: 'Parc Güell',
       rating: 3,
       comment: 'Bonito, pero demasiada gente hoy. Las vistas son geniales, aunque la zona monumental estaba abarrotada.',
       time: 'Hace 1d',
     ),
   ];
+
+  // Barcelona Events
+  static final List<Event> barcelonaEvents = [
+    Event(
+      id: 'e1',
+      name: 'Concierto de Rosalía',
+      description: 'Disfruta de la mejor artista de música urbana española. ¡No te lo pierdas!',
+      image: 'assets/images/rosalía - copia.jpeg',
+      date: '15-04-2026',
+      location: 'Camp Nou',
+      category: 'Música',
+      rating: 4.9,
+      artist: 'Rosalía',
+    ),
+    Event(
+      id: 'e2',
+      name: 'El Rey León - Musical',
+      description: 'El musical más icónico del mundo llega a Barcelona. Espectáculo imprescindible.',
+      image: 'assets/images/EL rey León ( musical que és fa per tot el món) - copia.jpeg',
+      date: '20-04-2026',
+      location: 'Teatro Colón',
+      category: 'Teatro',
+      rating: 4.8,
+      artist: 'Disney Theatrical Productions',
+    ),
+    Event(
+      id: 'e3',
+      name: 'Ruta Gastronómica de Barcelona',
+      description: 'Descubre los sabores más auténticos de Barcelona con expertos locales.',
+      image: 'assets/images/ruta gastronomica.jpeg',
+      date: 'Diariamente',
+      location: 'Barrio Gótico',
+      category: 'Gastronomía',
+      rating: 4.7,
+      artist: 'Expert Local Guides',
+    ),
+  ];
 }
+
