@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:translator/translator.dart';
 import '../services/ollama_service.dart';
 
 class TranslatorScreen extends StatefulWidget {
@@ -13,21 +14,30 @@ class TranslatorScreen extends StatefulWidget {
 
 class _TranslatorScreenState extends State<TranslatorScreen> {
   final TextEditingController _controller = TextEditingController();
+  final GoogleTranslator _googleTranslator = GoogleTranslator();
+
   String _translatedText = '';
   String _sourceLanguage = 'Español';
   String _targetLanguage = 'Catalán';
   bool _isLoading = false;
+  bool _usedFallback = false; // shows a subtle badge if Ollama was used
 
   final List<String> _languages = ['Catalán', 'Español', 'Inglés'];
 
-  // Swap source and target languages (and swap texts too)
+  /// Maps display names -> BCP-47 language codes used by GoogleTranslator
+  static const Map<String, String> _langCodes = {
+    'Catalán': 'ca',
+    'Español': 'es',
+    'Inglés': 'en',
+  };
+
+  // ── Swap source <-> target (and their text content) ───────────────────────
   void _swapLanguages() {
     setState(() {
       final temp = _sourceLanguage;
       _sourceLanguage = _targetLanguage;
       _targetLanguage = temp;
 
-      // Also swap text content if there's a translation
       if (_translatedText.isNotEmpty) {
         final tempText = _controller.text;
         _controller.text = _translatedText;
@@ -36,23 +46,45 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
     });
   }
 
+  // ── Core translation logic ────────────────────────────────────────────────
   Future<void> _translate() async {
-    if (_controller.text.trim().isEmpty) return;
+    final input = _controller.text.trim();
+    if (input.isEmpty) return;
 
-    // Prevent translating to the same language
     if (_sourceLanguage == _targetLanguage) {
-      setState(() => _translatedText = _controller.text);
+      setState(() => _translatedText = input);
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _usedFallback = false;
     });
 
-    final result = await widget.ollamaService.translateText(
-      _controller.text,
-      _targetLanguage,
-    );
+    String result = '';
+
+    // 1. Try free GoogleTranslator first
+    try {
+      final srcCode = _langCodes[_sourceLanguage] ?? 'auto';
+      final tgtCode = _langCodes[_targetLanguage] ?? 'en';
+
+      final translation = await _googleTranslator
+          .translate(input, from: srcCode, to: tgtCode)
+          .timeout(const Duration(seconds: 8));
+
+      result = translation.text;
+    } catch (_) {
+      // 2. Fall back to Ollama if Google fails (offline / rate-limited)
+      try {
+        result = await widget.ollamaService.translateText(
+          input,
+          _targetLanguage,
+        );
+        _usedFallback = true;
+      } catch (e) {
+        result = 'Error al traducir. Comprueba tu conexión.';
+      }
+    }
 
     setState(() {
       _translatedText = result;
@@ -60,8 +92,8 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
     });
   }
 
+  // ── Camera stub (wire up your OCR here) ───────────────────────────────────
   Future<void> _openCamera() async {
-    // Hook into your camera/OCR service here
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Camara / OCR proximamente'),
@@ -120,7 +152,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           // ── Language Pair Selector ──────────────────────────────────────────
           Row(
             children: [
-              // Source language label
+              // Source language
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +171,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                       selected: _sourceLanguage,
                       onSelect: (lang) {
                         if (lang == _targetLanguage) {
-                          // Auto-swap target to avoid same-same
                           setState(() {
                             _targetLanguage = _sourceLanguage;
                             _sourceLanguage = lang;
@@ -178,7 +209,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                 ),
               ),
 
-              // Target language label
+              // Target language
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +244,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ── Input Label ────────────────────────────────────────────────────
+          // ── Input Label + Camera ────────────────────────────────────────────
           Row(
             children: [
               const Text(
@@ -225,7 +256,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                 ),
               ),
               const Spacer(),
-              // Camera icon button — styled to match the teal theme
               GestureDetector(
                 onTap: _openCamera,
                 child: Container(
@@ -249,7 +279,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 12),
 
-          // ── Text Input ────────────────────────────────────────────────────
+          // ── Text Input ─────────────────────────────────────────────────────
           TextField(
             controller: _controller,
             maxLines: 5,
@@ -280,7 +310,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── Translate Button ──────────────────────────────────────────────
+          // ── Translate Button ────────────────────────────────────────────────
           ElevatedButton(
             onPressed: _isLoading ? null : _translate,
             style: ElevatedButton.styleFrom(
@@ -310,16 +340,42 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                   ),
           ),
 
-          // ── Translation Result ────────────────────────────────────────────
+          // ── Translation Result ──────────────────────────────────────────────
           if (_translatedText.isNotEmpty) ...[
             const SizedBox(height: 24),
-            const Text(
-              'Traducción:',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF334155),
-                fontSize: 16,
-              ),
+            // Label + optional fallback badge
+            Row(
+              children: [
+                const Text(
+                  'Traducción:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF334155),
+                    fontSize: 16,
+                  ),
+                ),
+                if (_usedFallback) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(6),
+                      border:
+                          Border.all(color: const Color(0xFFFCD34D), width: 1),
+                    ),
+                    child: const Text(
+                      'via Ollama',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 12),
             Container(
@@ -346,7 +402,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   }
 }
 
-// ── Reusable language pill row widget ─────────────────────────────────────────
+// ── Reusable language pill column widget ──────────────────────────────────────
 class _LanguagePills extends StatelessWidget {
   final List<String> languages;
   final String selected;
