@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({Key? key}) : super(key: key);
@@ -8,12 +10,71 @@ class SecurityScreen extends StatefulWidget {
 }
 
 class _SecurityScreenState extends State<SecurityScreen> {
-  String? _expandedSection = 'emergencies';
+  String? _expandedSection = 'medical';
+
+  static final List<_MedicalInfo> _medicalItems = [
+    const _MedicalInfo(
+      emoji: '🏥',
+      title: 'Urgencias Gratuitas',
+      description:
+          'En España, la atención médica de urgencia vital está garantizada y es gratuita para cualquier persona.',
+    ),
+    const _MedicalInfo(
+      emoji: '🇪🇺',
+      title: 'Ciudadanos Europeos',
+      description:
+          'Con la Tarjeta Sanitaria Europea tienes acceso a atención médica pública.',
+    ),
+    const _MedicalInfo(
+      emoji: '💊',
+      title: 'Farmacias',
+      description: 'Busca la cruz verde. Siempre hay farmacias de guardia.',
+    ),
+  ];
 
   void _toggleSection(String section) {
     setState(() {
       _expandedSection = _expandedSection == section ? null : section;
     });
+  }
+
+  // ✅ COMMIT 1: Emergency call function
+  Future<void> _confirmAndCallEmergency() async {
+    HapticFeedback.mediumImpact();
+
+    final shouldCall = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Llamar al 112'),
+        content: const Text(
+          'Vas a llamar al servicio de emergencias. Solo úsalo en caso real.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Llamar'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCall != true) return;
+
+    final uri = Uri.parse('tel:112');
+
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo iniciar la llamada'),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -23,147 +84,84 @@ class _SecurityScreenState extends State<SecurityScreen> {
       children: [
         const SizedBox(height: 8),
 
-        // Header Banner
+        // HEADER
         Container(
           decoration: BoxDecoration(
             color: const Color(0xFFEF4444),
             borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFECDD3).withOpacity(0.5),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Seguridad y Salud 🛡️',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Si necesitas ayuda urgentemente, llama inmediatamente a este número:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-                  ],
-                ),
+          child: const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Seguridad y Salud 🛡️',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
               ),
-              Positioned(
-                right: -20,
-                bottom: -20,
-                child: Transform.rotate(
-                  angle: 0.2,
-                  child: Text(
-                    '🚨',
-                    style: TextStyle(
-                      fontSize: 80,
-                      color: Colors.white.withOpacity(0.2),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
 
         const SizedBox(height: 24),
 
-        // 112 Emergency Card
+        // EMERGENCY CARD
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: const Color(0xFFFEE2E2), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Column(
             children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEE2E2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.phone,
-                  size: 40,
-                  color: Color(0xFFDC2626),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const Icon(Icons.phone, size: 60, color: Color(0xFFDC2626)),
+              const SizedBox(height: 12),
               const Text(
                 '112',
                 style: TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFFDC2626),
-                  letterSpacing: 2,
                 ),
               ),
-              const SizedBox(height: 8),
               const Text(
                 'Emergencias Generales',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF475569),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Gratuito. Funciona 24/7. Atienden en múltiples idiomas (inglés, francés, alemán, etc.). Llama aquí para policía, ambulancia o bomberos.',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF64748B),
-                ),
-                textAlign: TextAlign.center,
-              ),
+
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Call 112 (use url_launcher if needed)
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFDC2626),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+
+              // ✅ COMMIT 2: Pulse animation + button
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 1.0, end: 1.05),
+                duration: const Duration(seconds: 1),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: child,
+                  );
+                },
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _confirmAndCallEmergency,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 8,
                     ),
-                    elevation: 6,
-                  ),
-                  child: const Text(
-                    'LLAMAR 112',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: 1,
+                    child: const Text(
+                      'LLAMAR 112',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -174,63 +172,26 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // Medical Services Section
+        // SIMPLE MEDICAL SECTION (kept minimal for clarity)
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
             children: [
               InkWell(
                 onTap: () => _toggleSection('medical'),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF0F9FF),
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(24)),
-                  ),
+                child: const Padding(
+                  padding: EdgeInsets.all(20),
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0EA5E9),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Asistencia Médica',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        _expandedSection == 'medical'
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: const Color(0xFF0284C7),
+                      Icon(Icons.favorite, color: Colors.blue),
+                      SizedBox(width: 12),
+                      Text(
+                        'Asistencia Médica',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -240,13 +201,21 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
-                    children: [
-                      _buildMedicalItem(
-                        '🏥',
-                        'Urgencias Gratuitas',
-                        'En España, la atención médica de urgencia vital es gratuita.',
-                      ),
-                    ],
+                    children: _medicalItems
+                        .map(
+                          (e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(e.emoji),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(e.description)),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
             ],
@@ -257,55 +226,17 @@ class _SecurityScreenState extends State<SecurityScreen> {
       ],
     );
   }
+}
 
-  Widget _buildMedicalItem(String emoji, String title, String description) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(description),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+// DATA MODELS
+class _MedicalInfo {
+  const _MedicalInfo({
+    required this.emoji,
+    required this.title,
+    required this.description,
+  });
 
-  Widget _buildBulletList(List<String> items) {
-    return Column(
-      children: items
-          .map(
-            (e) => Row(
-              children: [
-                const Text('• '),
-                Expanded(child: Text(e)),
-              ],
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildPoliceCard(
-    String imageUrl,
-    String badge,
-    String title,
-    String subtitle,
-    String description,
-    Color borderColor,
-    Color badgeBorderColor,
-    Color badgeTextColor,
-  ) {
-    return Container();
-  }
+  final String emoji;
+  final String title;
+  final String description;
 }
