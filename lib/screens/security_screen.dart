@@ -12,34 +12,8 @@ class SecurityScreen extends StatefulWidget {
 class _SecurityScreenState extends State<SecurityScreen> {
   String? _expandedSection = 'medical';
 
-  static final List<_MedicalInfo> _medicalItems = [
-    const _MedicalInfo(
-      emoji: '🏥',
-      title: 'Urgencias Gratuitas',
-      description:
-          'En España, la atención médica de urgencia vital está garantizada y es gratuita para cualquier persona.',
-    ),
-    const _MedicalInfo(
-      emoji: '🇪🇺',
-      title: 'Ciudadanos Europeos',
-      description:
-          'Con la Tarjeta Sanitaria Europea tienes acceso a atención médica pública.',
-    ),
-    const _MedicalInfo(
-      emoji: '💊',
-      title: 'Farmacias',
-      description: 'Busca la cruz verde. Siempre hay farmacias de guardia.',
-    ),
-  ];
-
-  void _toggleSection(String section) {
-    setState(() {
-      _expandedSection = _expandedSection == section ? null : section;
-    });
-  }
-
-  // ✅ COMMIT 1: Emergency call function
   Future<void> _confirmAndCallEmergency() async {
+    // 📳 COMMIT 3: Haptic feedback added
     HapticFeedback.mediumImpact();
 
     final shouldCall = await showDialog<bool>(
@@ -47,7 +21,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Llamar al 112'),
         content: const Text(
-          'Vas a llamar al servicio de emergencias. Solo úsalo en caso real.',
+          'Vas a llamar a emergencias. Solo úsalo en caso real.',
         ),
         actions: [
           TextButton(
@@ -66,15 +40,24 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
     final uri = Uri.parse('tel:112');
 
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo iniciar la llamada'),
-          ),
-        );
-      }
+    final success = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo iniciar la llamada'),
+        ),
+      );
     }
+  }
+
+  void _toggleSection(String section) {
+    setState(() {
+      _expandedSection = _expandedSection == section ? null : section;
+    });
   }
 
   @override
@@ -132,7 +115,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
               const SizedBox(height: 20),
 
-              // ✅ COMMIT 2: Pulse animation + button
+              // 🔴 COMMIT 2: Pulse animation + button
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 1.0, end: 1.05),
                 duration: const Duration(seconds: 1),
@@ -172,7 +155,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // SIMPLE MEDICAL SECTION (kept minimal for clarity)
+        // SIMPLE SECTION (unchanged)
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -197,27 +180,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   ),
                 ),
               ),
-              if (_expandedSection == 'medical')
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: _medicalItems
-                        .map(
-                          (e) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(e.emoji),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(e.description)),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
             ],
           ),
         ),
@@ -226,17 +188,4 @@ class _SecurityScreenState extends State<SecurityScreen> {
       ],
     );
   }
-}
-
-// DATA MODELS
-class _MedicalInfo {
-  const _MedicalInfo({
-    required this.emoji,
-    required this.title,
-    required this.description,
-  });
-
-  final String emoji;
-  final String title;
-  final String description;
 }
