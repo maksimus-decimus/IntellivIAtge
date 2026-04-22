@@ -12,15 +12,20 @@ class AttractionsScreen extends StatelessWidget {
       itemBuilder: (context, index) {
         final attraction = AppConstants.barcelonaAttractions[index];
         return Container(
-          margin: const EdgeInsets.only(bottom: 16),
+          margin: const EdgeInsets.only(bottom: 20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -29,10 +34,10 @@ class AttractionsScreen extends StatelessWidget {
             children: [
               // Image
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 child: Image.network(
                   attraction.image,
-                  height: 200,
+                  height: 240,
                   width: double.infinity,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
@@ -47,42 +52,51 @@ class AttractionsScreen extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
                             attraction.name,
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.w900,
                               color: Color(0xFF1E293B),
+                              letterSpacing: -0.5,
                             ),
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
                               const Icon(
                                 Icons.star,
-                                size: 16,
-                                color: Color(0xFFF59E0B),
+                                size: 14,
+                                color: Color(0xFFFBBF24),
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 attraction.rating.toString(),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFFD97706),
-                                  fontSize: 14,
+                                  color: Color(0xFF1E293B),
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -90,30 +104,60 @@ class AttractionsScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDEEAF6),
-                        borderRadius: BorderRadius.circular(6),
+                        color: const Color(0xFFEBF8FF),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         attraction.category,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0369A1),
-                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0EA5E9),
+                          fontSize: 11,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Text(
                       attraction.description,
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
+                      style: TextStyle(
+                        color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
                         height: 1.5,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () {},
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE0F2FE), width: 1),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.location_on, size: 16, color: Colors.grey[500]),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Ver ubicación',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

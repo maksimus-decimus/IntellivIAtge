@@ -118,6 +118,14 @@ class AppConstants {
       image: 'assets/images/Spotify camp nou stadium - copia.jpeg',
       description: 'Disfruta de conciertos y eventos en el legendario Camp Nou. ¡Atmosphere única!',
     ),
+    Attraction(
+      id: '6',
+      name: 'El Rey León - Musical',
+      category: 'Teatro',
+      rating: 4.9,
+      image: 'assets/images/EL rey León ( musical que és fa per tot el món) - copia.jpeg',
+      description: 'El musical de Disney más aclamado. Una experiencia mágica e inolvidable.',
+    ),
   ];
 
   // Quick Questions for AI
@@ -289,6 +297,16 @@ class AppConstants {
       rating: 3,
       comment: 'Bonito, pero demasiada gente hoy. Las vistas son geniales, aunque la zona monumental estaba abarrotada.',
       time: 'Hace 1d',
+    ),
+    CommunityPost(
+      id: 4,
+      user: 'Familia García',
+      handle: '@familiagarcia_bcn',
+      avatar: 'assets/images/fotofamily.jpeg',
+      place: 'La Boquería',
+      rating: 5,
+      comment: 'Un viaje maravilloso en familia. Los colores y sabores del mercado son increíbles. ¡Recomendado 100%! 🎉',
+      time: 'Hace 3h',
     ),
   ];
 

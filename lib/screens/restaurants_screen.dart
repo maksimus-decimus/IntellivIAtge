@@ -88,7 +88,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image
+                  // Image with professional styling
                   Stack(
                     children: [
                       Image.network(
@@ -107,52 +107,59 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                           );
                         },
                       ),
+                      // Professional gradient overlay
                       Positioned(
                         bottom: 0,
                         left: 0,
                         right: 0,
                         child: Container(
+                          height: 120,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.bottomCenter,
                               end: Alignment.topCenter,
                               colors: [
-                                Colors.black.withOpacity(0.6),
+                                Colors.black.withOpacity(0.7),
+                                Colors.black.withOpacity(0.3),
                                 Colors.transparent,
                               ],
                             ),
                           ),
-                          padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  restaurant.type.toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 16,
+                        left: 16,
+                        right: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFB923C),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                restaurant.name,
+                              child: Text(
+                                restaurant.type.toUpperCase(),
                                 style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              restaurant.name,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -815,7 +822,18 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.grey[100]!, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,13 +842,13 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 borderRadius: BorderRadius.circular(16),
                 child: Image.network(
                   restaurant.image ?? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
-                  width: 96,
-                  height: 96,
+                  width: 100,
+                  height: 100,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      width: 96,
-                      height: 96,
+                      width: 100,
+                      height: 100,
                       color: Colors.grey[300],
                       child: const Center(
                         child: Icon(Icons.restaurant, color: Colors.grey),

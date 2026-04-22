@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 
 // Your Project Imports
@@ -53,7 +54,7 @@ class IntelliviAtgeApp extends StatelessWidget {
       theme: ThemeData(
         primaryColor: const Color(0xFF0EA5E9),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        fontFamily: 'SF Pro Display',
+        textTheme: GoogleFonts.notoSansTextTheme(),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0EA5E9),
           brightness: Brightness.light,

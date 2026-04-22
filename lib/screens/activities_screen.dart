@@ -33,6 +33,45 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
   int _ticketQuantity = 2;
   String _ticketType = 'General';
 
+  // Helper function to load images (local assets or URLs)
+  Widget _buildImageWidget(String? imageUrl, {double width = 80, double height = 80, BoxFit fit = BoxFit.cover, Widget? errorWidget}) {
+    if (imageUrl == null) {
+      return errorWidget ?? const SizedBox.shrink();
+    }
+    
+    if (imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) {
+          return errorWidget ?? Container(
+            width: width,
+            height: height,
+            color: Colors.grey[300],
+            child: const Icon(Icons.image_not_supported),
+          );
+        },
+      );
+    }
+    
+    return Image.network(
+      imageUrl,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) {
+        return errorWidget ?? Container(
+          width: width,
+          height: height,
+          color: Colors.grey[300],
+          child: const Icon(Icons.image_not_supported),
+        );
+      },
+    );
+  }
+
   final List<Event> _mockEvents = [
     Event(
       id: 1,
@@ -40,7 +79,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       date: '15 de Mayo, 21:00',
       location: 'Palau Sant Jordi',
       price: 65,
-      image: 'https://picsum.photos/400/200?random=11',
+      image: 'assets/images/rosalía - copia.jpeg',
       category: 'Conciertos 🎸',
     ),
     Event(
@@ -49,7 +88,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       date: '20 de Mayo, 19:30',
       location: 'Teatro Lope de Vega',
       price: 45,
-      image: 'https://picsum.photos/400/200?random=12',
+      image: 'assets/images/EL rey León ( musical que és fa per tot el món) - copia.jpeg',
       category: 'Teatro 🎭',
     ),
     Event(
@@ -58,7 +97,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       date: '28 de Mayo, 20:45',
       location: 'Camp Nou',
       price: 120,
-      image: 'https://picsum.photos/400/200?random=13',
+      image: 'assets/images/Spotify camp nou stadium - copia.jpeg',
       category: 'Deportes ⚽',
     ),
   ];
@@ -132,26 +171,31 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.pink[50],
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.pink[100]!),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.pink.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
+                          borderRadius: BorderRadius.circular(14),
+                          child: _buildImageWidget(
                             event.image,
-                            width: 80,
-                            height: 80,
+                            width: 90,
+                            height: 90,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 80,
-                                height: 80,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.event, color: Colors.grey),
-                              );
-                            },
+                            errorWidget: Container(
+                              width: 90,
+                              height: 90,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.event, color: Colors.grey),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -538,12 +582,17 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey[100]!, width: 2),
+                      border: Border.all(color: Colors.grey[100]!, width: 0),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
                           blurRadius: 8,
-                          offset: const Offset(0, 4),
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
@@ -552,21 +601,19 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                          child: Image.network(
+                          child: _buildImageWidget(
                             event.image,
                             width: double.infinity,
-                            height: 128,
+                            height: 260,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: double.infinity,
-                                height: 128,
-                                color: Colors.grey[300],
-                                child: const Center(
-                                  child: Icon(Icons.event, size: 48, color: Colors.grey),
-                                ),
-                              );
-                            },
+                            errorWidget: Container(
+                              width: double.infinity,
+                              height: 260,
+                              color: Colors.grey[300],
+                              child: const Center(
+                                child: Icon(Icons.event_note, size: 60, color: Colors.grey),
+                              ),
+                            ),
                           ),
                         ),
                         Padding(
