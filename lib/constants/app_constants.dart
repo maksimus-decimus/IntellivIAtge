@@ -83,7 +83,7 @@ class AppConstants {
       name: 'Sagrada Familia',
       category: 'Monumento',
       rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1598517522687-9755b7662c94?w=500&q=80',
+      image: 'assets/images/1000_F_105502541_TfyTpCzIM76NYpTKb2epk1p4ZzARzC3J.jpg',
       description: 'Obra maestra de Gaudí. Reserva con 2 semanas de antelación.',
     ),
     Attraction(
