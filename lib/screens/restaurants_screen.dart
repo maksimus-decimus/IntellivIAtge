@@ -18,6 +18,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   RestaurantView _activeView = RestaurantView.list;
   Restaurant? _selectedRestaurant;
   Dish? _selectedDish;
+  String? _selectedRestaurantType; // Filter for restaurant type
 
   void _closeView() {
     setState(() {
@@ -25,6 +26,23 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       _selectedRestaurant = null;
       _selectedDish = null;
     });
+  }
+
+  List<String> get _restaurantTypes {
+    return AppConstants.topRestaurants
+        .map((restaurant) => restaurant.type)
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  List<Restaurant> get _filteredRestaurants {
+    if (_selectedRestaurantType == null) {
+      return AppConstants.topRestaurants;
+    }
+    return AppConstants.topRestaurants
+        .where((restaurant) => restaurant.type == _selectedRestaurantType)
+        .toList();
   }
 
   Widget _buildRestaurantDetails() {
@@ -602,7 +620,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _activeTab = RestaurantTab.dishes),
+              onTap: () => setState(() {
+                _activeTab = RestaurantTab.dishes;
+                _selectedRestaurantType = null;
+              }),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -633,7 +654,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _activeTab = RestaurantTab.restaurants),
+              onTap: () => setState(() {
+                _activeTab = RestaurantTab.restaurants;
+                _selectedRestaurantType = null;
+              }),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
@@ -810,12 +834,85 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   }
 
   Widget _buildRestaurantsList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: AppConstants.topRestaurants.length,
-      itemBuilder: (context, index) {
-        final restaurant = AppConstants.topRestaurants[index];
+    return Column(
+      children: [
+        // Filter Chips for Restaurant Types
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // "Todos" chip
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: const Text('Todos'),
+                    selected: _selectedRestaurantType == null,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedRestaurantType = null;
+                      });
+                    },
+                    backgroundColor: Colors.grey[100],
+                    selectedColor: Colors.orange,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: _selectedRestaurantType == null ? Colors.white : Colors.grey[700],
+                    ),
+                  ),
+                ),
+                // Type chips
+                ..._restaurantTypes.map((type) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(type),
+                      selected: _selectedRestaurantType == type,
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedRestaurantType = selected ? type : null;
+                        });
+                      },
+                      backgroundColor: Colors.grey[100],
+                      selectedColor: Colors.orange,
+                      labelStyle: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: _selectedRestaurantType == type ? Colors.white : Colors.grey[700],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        ),
+        // Restaurants List
+        Expanded(
+          child: _filteredRestaurants.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey[300]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No hay restaurantes de este tipo',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _filteredRestaurants.length,
+                  itemBuilder: (context, index) {
+                    final restaurant = _filteredRestaurants[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(12),
@@ -957,7 +1054,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             ],
           ),
         );
-      },
+                    },
+                  ),
+        ),
+      ],
     );
   }
 

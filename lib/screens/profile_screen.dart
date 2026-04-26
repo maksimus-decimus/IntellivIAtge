@@ -391,7 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 ),
                 subtitle: const Text('Cuando se crea o actualiza un viaje'),
                 value: _notifTrips,
-                activeColor: const Color(0xFF6366F1),
+                activeThumbColor: const Color(0xFF6366F1),
                 onChanged: (val) {
                   setModalState(() => _notifTrips = val);
                   setState(() => _notifTrips = val);
@@ -404,7 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 ),
                 subtitle: const Text('Cuando te invitan a un viaje o grupo'),
                 value: _notifInvitations,
-                activeColor: const Color(0xFF6366F1),
+                activeThumbColor: const Color(0xFF6366F1),
                 onChanged: (val) {
                   setModalState(() => _notifInvitations = val);
                   setState(() => _notifInvitations = val);
@@ -417,7 +417,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 ),
                 subtitle: const Text('Recordatorios de viajes próximos'),
                 value: _notifReminders,
-                activeColor: const Color(0xFF6366F1),
+                activeThumbColor: const Color(0xFF6366F1),
                 onChanged: (val) {
                   setModalState(() => _notifReminders = val);
                   setState(() => _notifReminders = val);
