@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../services/trip_service.dart';
 import '../services/user_service.dart';
 import '../models/types.dart' as types;
@@ -40,6 +41,9 @@ class _TripsScreenState extends State<TripsScreen> {
   }
   
   Future<void> _initializeData() async {
+    // Initialize date formatting for Spanish locale
+    await initializeDateFormatting('es', null);
+    
     // Start polling for trips
     await _tripService.startTripsPolling();
     
@@ -72,6 +76,8 @@ class _TripsScreenState extends State<TripsScreen> {
     _tripService.stopTripsPolling();
     _tripService.stopRoutesPolling();
     _tripNameController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
     _friendSearchController.dispose();
     _expenseAmountController.dispose();
     _expenseConceptController.dispose();
@@ -79,12 +85,14 @@ class _TripsScreenState extends State<TripsScreen> {
   }
   
   String _formatDateRange(DateTime start, DateTime end) {
-    final formatter = DateFormat('d MMM', 'es_ES');
+    final formatter = DateFormat('d MMM', 'es');
     return '${formatter.format(start)} - ${formatter.format(end)}';
   }
   
   // Form controllers and state
   final TextEditingController _tripNameController = TextEditingController();
+  final TextEditingController _startDateController = TextEditingController();
+  final TextEditingController _endDateController = TextEditingController();
   final TextEditingController _friendSearchController = TextEditingController();
   final TextEditingController _expenseAmountController = TextEditingController();
   final TextEditingController _expenseConceptController = TextEditingController();
@@ -94,6 +102,7 @@ class _TripsScreenState extends State<TripsScreen> {
   List<types.UserProfile> _friends = [];
   List<types.UserProfile> _filteredFriends = [];
   bool _isLoadingFriends = false;
+  String? _addingParticipantId;
   List<types.TripExpense> _expenses = [];
   Map<String, Map<String, double>> _debts = {};
   bool _isLoadingExpenses = false;
@@ -110,9 +119,11 @@ class _TripsScreenState extends State<TripsScreen> {
     if (picked != null) {
       setState(() {
         _startDate = picked;
+        _startDateController.text = DateFormat('dd/MM/yyyy').format(picked);
         // If end date is before start date, reset it
         if (_endDate != null && _endDate!.isBefore(picked)) {
           _endDate = null;
+          _endDateController.clear();
         }
       });
     }
@@ -126,7 +137,10 @@ class _TripsScreenState extends State<TripsScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
     );
     if (picked != null) {
-      setState(() => _endDate = picked);
+      setState(() {
+        _endDate = picked;
+        _endDateController.text = DateFormat('dd/MM/yyyy').format(picked);
+      });
     }
   }
   
@@ -159,6 +173,8 @@ class _TripsScreenState extends State<TripsScreen> {
       _tripNameController.clear();
       _startDate = null;
       _endDate = null;
+      _startDateController.clear();
+      _endDateController.clear();
       _isPublicTrip = false;
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -205,31 +221,44 @@ class _TripsScreenState extends State<TripsScreen> {
   Future<void> _addParticipant(String friendId) async {
     if (_selectedTrip == null) return;
     
+    // Prevent double-tap
+    if (_addingParticipantId == friendId) return;
+    
     // Check if already a participant
     if (_selectedTrip!.participantIds.contains(friendId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Esta persona ya est\u00e1 en el viaje'), backgroundColor: Colors.orange),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Esta persona ya está en el viaje'), backgroundColor: Colors.orange),
+        );
+      }
       return;
     }
+    
+    setState(() => _addingParticipantId = friendId);
     
     final success = await _tripService.addParticipant(
       tripId: _selectedTrip!.id,
       userId: friendId,
     );
     
+    if (mounted) {
+      setState(() => _addingParticipantId = null);
+    }
+    
+    if (!mounted) return;
+    
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('\u00a1Persona a\u00f1adida al viaje!'), backgroundColor: Colors.cyan),
+        const SnackBar(content: Text('¡Persona añadida al viaje!'), backgroundColor: Colors.cyan),
       );
       // Reload trip details
       final updatedTrip = await _tripService.getTripDetails(_selectedTrip!.id);
-      if (updatedTrip != null) {
+      if (updatedTrip != null && mounted) {
         setState(() => _selectedTrip = updatedTrip);
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al a\u00f1adir persona'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Error al añadir persona'), backgroundColor: Colors.red),
       );
     }
   }
@@ -489,8 +518,11 @@ class _TripsScreenState extends State<TripsScreen> {
                               border: Border.all(color: Colors.grey[200]!, width: 2),
                             ),
                             child: TextField(
+                              controller: _startDateController,
+                              readOnly: true,
+                              onTap: () => _selectStartDate(context),
                               decoration: const InputDecoration(
-                                hintText: 'DD/MM/YYYY',
+                                hintText: 'Toca para seleccionar',
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.all(12),
                                 prefixIcon: Icon(Icons.calendar_today, size: 18),
@@ -518,8 +550,11 @@ class _TripsScreenState extends State<TripsScreen> {
                               border: Border.all(color: Colors.grey[200]!, width: 2),
                             ),
                             child: TextField(
+                              controller: _endDateController,
+                              readOnly: true,
+                              onTap: () => _selectEndDate(context),
                               decoration: const InputDecoration(
-                                hintText: 'DD/MM/YYYY',
+                                hintText: 'Toca para seleccionar',
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.all(12),
                                 prefixIcon: Icon(Icons.calendar_today, size: 18),
@@ -710,11 +745,31 @@ class _TripsScreenState extends State<TripsScreen> {
                                 color: Colors.cyan,
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Text('\u2713 A\u00f1adido', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                              child: const Text('✓ Añadido', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                            )
+                          else if (_addingParticipantId == friend.id)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.cyan[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const SizedBox(
+                                width: 50,
+                                height: 20,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan),
+                                  ),
+                                ),
+                              ),
                             )
                           else
-                            GestureDetector(
+                            InkWell(
                               onTap: () => _addParticipant(friend.id),
+                              borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
