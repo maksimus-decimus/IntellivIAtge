@@ -20,15 +20,34 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   String _sourceLanguage = 'Español';
   String _targetLanguage = 'Catalán';
   bool _isLoading = false;
-  bool _usedFallback = false; // shows a subtle badge if Ollama was used
+  bool _usedFallback = false;
 
-  final List<String> _languages = ['Catalán', 'Español', 'Inglés'];
+  // ── Extended language list ─────────────────────────────────────────────────
+  final List<String> _languages = [
+    'Catalán',
+    'Español',
+    'Inglés',
+    'Francés',
+    'Alemán',
+    'Italiano',
+    'Portugués',
+    'Árabe',
+    'Chino',
+    'Japonés',
+  ];
 
-  /// Maps display names -> BCP-47 language codes used by GoogleTranslator
+  /// Maps display names → BCP-47 language codes used by GoogleTranslator
   static const Map<String, String> _langCodes = {
     'Catalán': 'ca',
     'Español': 'es',
     'Inglés': 'en',
+    'Francés': 'fr',
+    'Alemán': 'de',
+    'Italiano': 'it',
+    'Portugués': 'pt',
+    'Árabe': 'ar',
+    'Chino': 'zh',
+    'Japonés': 'ja',
   };
 
   // ── Swap source <-> target (and their text content) ───────────────────────
@@ -74,7 +93,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
 
       result = translation.text;
     } catch (_) {
-      // 2. Fall back to Ollama if Google fails (offline / rate-limited)
+      // 2. Fall back to Ollama if Google fails
       try {
         result = await widget.ollamaService.translateText(
           input,
@@ -92,7 +111,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
     });
   }
 
-  // ── Camera stub (wire up your OCR here) ───────────────────────────────────
+  // ── Camera stub ───────────────────────────────────────────────────────────
   Future<void> _openCamera() async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -117,7 +136,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header ─────────────────────────────────────────────────────────
+          // Header (unchanged)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -149,7 +168,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ── Language Pair Selector ──────────────────────────────────────────
+          // Language Pair Selector (unchanged - now supports more languages)
           Row(
             children: [
               // Source language
@@ -244,7 +263,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ── Input Label + Camera ────────────────────────────────────────────
+          // Rest of the UI (input, button, result) remains exactly the same
           Row(
             children: [
               const Text(
@@ -279,7 +298,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 12),
 
-          // ── Text Input ─────────────────────────────────────────────────────
           TextField(
             controller: _controller,
             maxLines: 5,
@@ -310,7 +328,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── Translate Button ────────────────────────────────────────────────
           ElevatedButton(
             onPressed: _isLoading ? null : _translate,
             style: ElevatedButton.styleFrom(
@@ -340,10 +357,8 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                   ),
           ),
 
-          // ── Translation Result ──────────────────────────────────────────────
           if (_translatedText.isNotEmpty) ...[
             const SizedBox(height: 24),
-            // Label + optional fallback badge
             Row(
               children: [
                 const Text(
@@ -402,7 +417,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   }
 }
 
-// ── Reusable language pill column widget ──────────────────────────────────────
+// _LanguagePills widget remains unchanged
 class _LanguagePills extends StatelessWidget {
   final List<String> languages;
   final String selected;
