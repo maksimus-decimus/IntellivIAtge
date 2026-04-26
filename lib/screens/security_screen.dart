@@ -10,7 +10,7 @@ class SecurityScreen extends StatefulWidget {
 }
 
 class _SecurityScreenState extends State<SecurityScreen> {
-  String _language = 'es'; // es, en, fr
+  String _language = 'es'; // es, en, fr, it, de
   String? _expandedSection = 'medical';
 
   // 🌍 Simple translator
@@ -52,20 +52,36 @@ class _SecurityScreenState extends State<SecurityScreen> {
           'es': 'Llamar al 112',
           'en': 'Call 112',
           'fr': 'Appeler le 112',
+          'it': 'Chiamare il 112',
+          'de': '112 anrufen',
         })),
         content: Text(t({
           'es': 'Vas a llamar a emergencias. Solo si es real.',
           'en': 'You are about to call emergency services.',
           'fr': 'Vous allez appeler les urgences.',
+          'it': 'Stai per chiamare i servizi di emergenza. Solo se è reale.',
+          'de': 'Sie sind dabei, den Notruf zu wählen. Nur im echten Notfall.',
         })),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(t({'es': 'Cancelar', 'en': 'Cancel', 'fr': 'Annuler'})),
+            child: Text(t({
+              'es': 'Cancelar',
+              'en': 'Cancel',
+              'fr': 'Annuler',
+              'it': 'Annulla',
+              'de': 'Abbrechen',
+            })),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(t({'es': 'Llamar', 'en': 'Call', 'fr': 'Appeler'})),
+            child: Text(t({
+              'es': 'Llamar',
+              'en': 'Call',
+              'fr': 'Appeler',
+              'it': 'Chiamare',
+              'de': 'Anrufen',
+            })),
           ),
         ],
       ),
@@ -90,7 +106,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
       children: [
         const SizedBox(height: 8),
 
-        // HEADER (unchanged)
+        // HEADER
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -105,6 +121,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   'es': 'Seguridad y Salud 🛡️',
                   'en': 'Safety & Health 🛡️',
                   'fr': 'Sécurité et Santé 🛡️',
+                  'it': 'Sicurezza e Salute 🛡️',
+                  'de': 'Sicherheit und Gesundheit 🛡️',
                 }),
                 style: const TextStyle(
                   fontSize: 24,
@@ -114,7 +132,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 🌍 LANGUAGE SWITCH
+              // 🌍 LANGUAGE SWITCH - Now with IT and DE
               Row(
                 children: [
                   _langButton('ES', 'es'),
@@ -122,6 +140,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   _langButton('EN', 'en'),
                   const SizedBox(width: 8),
                   _langButton('FR', 'fr'),
+                  const SizedBox(width: 8),
+                  _langButton('IT', 'it'),
+                  const SizedBox(width: 8),
+                  _langButton('DE', 'de'),
                 ],
               ),
             ],
@@ -130,7 +152,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // EMERGENCY CARD (unchanged)
+        // EMERGENCY CARD
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -155,6 +177,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   'es': 'Emergencias Generales',
                   'en': 'Emergency Services',
                   'fr': 'Urgences Générales',
+                  'it': 'Servizi di Emergenza',
+                  'de': 'Notfalldienste',
                 }),
               ),
               const SizedBox(height: 20),
@@ -177,7 +201,9 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       t({
                         'es': 'LLAMAR 112',
                         'en': 'CALL 112',
-                        'fr': 'APPELER 112'
+                        'fr': 'APPELER 112',
+                        'it': 'CHIAMARE 112',
+                        'de': '112 ANRUFEN',
                       }),
                       style: const TextStyle(
                         fontSize: 20,
@@ -194,7 +220,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // MEDICAL SECTION - Now with explanation of CAPs and hospitals
+        // MEDICAL SECTION
         _buildSection(
           'medical',
           Icons.favorite,
@@ -202,6 +228,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
             'es': 'Asistencia Médica',
             'en': 'Medical Assistance',
             'fr': 'Assistance Médicale',
+            'it': 'Assistenza Medica',
+            'de': 'Medizinische Hilfe',
           }),
           [
             _info(
@@ -210,6 +238,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 'es': 'Urgencias gratuitas para todos',
                 'en': 'Free emergency care for everyone',
                 'fr': 'Urgences gratuites pour tous',
+                'it': 'Urgenze gratuite per tutti',
+                'de': 'Kostenlose Notfallversorgung für alle',
               }),
             ),
             _info(
@@ -218,6 +248,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 'es': 'Acceso con tarjeta europea',
                 'en': 'Access with EU health card',
                 'fr': 'Accès avec carte européenne',
+                'it': 'Accesso con tessera sanitaria europea',
+                'de': 'Zugang mit Europäischer Krankenversicherungskarte',
               }),
             ),
             _info(
@@ -229,6 +261,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     'Hospitals: for serious emergencies (accidents, heart attacks, etc.)',
                 'fr':
                     'Hôpitaux : pour urgences graves (accidents, infarctus, etc.)',
+                'it':
+                    'Ospedali: per emergenze gravi (incidenti, infarti, ecc.)',
+                'de':
+                    'Krankenhäuser: für schwere Notfälle (Unfälle, Herzinfarkte, etc.)',
               }),
             ),
             _info(
@@ -240,6 +276,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     'CAPs: Primary Care Centers. For normal consultations, check-ups and minor emergencies',
                 'fr':
                     'CAPs : Centres de Soins Primaires. Pour consultations courantes, bilans et urgences légères',
+                'it':
+                    'CAPs: Centri di Assistenza Primaria. Per visite normali, controlli e urgenze minori',
+                'de':
+                    'CAPs: Primärversorgungszentren. Für normale Konsultationen, Untersuchungen und leichte Notfälle',
               }),
             ),
             _info(
@@ -248,6 +288,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 'es': 'Farmacias de guardia 24h',
                 'en': '24h pharmacies available',
                 'fr': 'Pharmacies de garde 24h',
+                'it': 'Farmacie di turno 24h',
+                'de': '24h Apotheken verfügbar',
               }),
             ),
           ],
@@ -255,7 +297,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // POLICE SECTION - Now with clear difference between Mossos and Guàrdia Urbana
+        // POLICE SECTION
         _buildSection(
           'police',
           Icons.shield,
@@ -263,6 +305,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
             'es': 'Cuerpos de Policía',
             'en': 'Police Forces',
             'fr': 'Forces de Police',
+            'it': 'Forze di Polizia',
+            'de': 'Polizeikräfte',
           }),
           [
             _info(
@@ -274,6 +318,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     'Mossos d’Esquadra: Regional police of Catalonia. Handles public safety, public order and serious crimes across all Catalonia.',
                 'fr':
                     'Mossos d’Esquadra : Police régionale de Catalogne. Sécurité publique, ordre public et crimes graves dans toute la Catalogne.',
+                'it':
+                    'Mossos d’Esquadra: Polizia regionale della Catalogna. Si occupa di sicurezza pubblica, ordine pubblico e reati gravi in tutta la Catalogna.',
+                'de':
+                    'Mossos d’Esquadra: Regionale Polizei Kataloniens. Zuständig für öffentliche Sicherheit, öffentliche Ordnung und schwere Straftaten in ganz Katalonien.',
               }),
             ),
             _info(
@@ -285,6 +333,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     'Guàrdia Urbana: Barcelona municipal police. Mainly handles traffic, city regulations and local safety inside Barcelona.',
                 'fr':
                     'Guàrdia Urbana : Police municipale de Barcelone. Circulation, règles de la ville et sécurité locale à Barcelone.',
+                'it':
+                    'Guàrdia Urbana: Polizia municipale di Barcellona. Si occupa principalmente di traffico, norme cittadine e sicurezza locale all’interno di Barcellona.',
+                'de':
+                    'Guàrdia Urbana: Kommunalpolizei von Barcelona. Hauptsächlich zuständig für Verkehr, Stadtregeln und lokale Sicherheit innerhalb Barcelonas.',
               }),
             ),
             _info(
@@ -295,6 +347,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 'en': 'National Police: documents, borders and federal crimes',
                 'fr':
                     'Police nationale : documents, frontières et délits fédéraux',
+                'it': 'Polizia Nazionale: documenti, confini e reati federali',
+                'de': 'Nationalpolizei: Dokumente, Grenzen und Bundesdelikte',
               }),
             ),
           ],
