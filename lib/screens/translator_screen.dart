@@ -50,7 +50,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
     'Japonés': 'ja',
   };
 
-  // ── Swap source <-> target (and their text content) ───────────────────────
+  // ── Swap source <-> target ────────────────────────────────────────────────
   void _swapLanguages() {
     setState(() {
       final temp = _sourceLanguage;
@@ -82,7 +82,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
 
     String result = '';
 
-    // 1. Try free GoogleTranslator first
     try {
       final srcCode = _langCodes[_sourceLanguage] ?? 'auto';
       final tgtCode = _langCodes[_targetLanguage] ?? 'en';
@@ -93,7 +92,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
 
       result = translation.text;
     } catch (_) {
-      // 2. Fall back to Ollama if Google fails
       try {
         result = await widget.ollamaService.translateText(
           input,
@@ -115,7 +113,19 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   Future<void> _openCamera() async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Camara / OCR proximamente'),
+        content: const Text('Cámara / OCR próximamente'),
+        backgroundColor: const Color(0xFF0D9488),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ── Voice Input (Microphone) stub ─────────────────────────────────────────
+  Future<void> _openVoiceInput() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Entrada por voz (micrófono) próximamente'),
         backgroundColor: const Color(0xFF0D9488),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -168,10 +178,9 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Language Pair Selector (unchanged - now supports more languages)
+          // Language Pair Selector (unchanged)
           Row(
             children: [
-              // Source language
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,8 +211,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                   ],
                 ),
               ),
-
-              // Swap button
               Padding(
                 padding: const EdgeInsets.only(top: 22, left: 6, right: 6),
                 child: GestureDetector(
@@ -227,8 +234,6 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                   ),
                 ),
               ),
-
-              // Target language
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +268,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Rest of the UI (input, button, result) remains exactly the same
+          // ── Input Label + Camera + Mic Buttons ─────────────────────────────
           Row(
             children: [
               const Text(
@@ -275,6 +280,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                 ),
               ),
               const Spacer(),
+              // Camera Button
               GestureDetector(
                 onTap: _openCamera,
                 child: Container(
@@ -289,6 +295,27 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
                   ),
                   child: const Icon(
                     Icons.camera_alt_rounded,
+                    color: Color(0xFF0D9488),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // New Microphone Button
+              GestureDetector(
+                onTap: _openVoiceInput,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCCFBF1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF5EEAD4),
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.mic_rounded,
                     color: Color(0xFF0D9488),
                     size: 20,
                   ),
