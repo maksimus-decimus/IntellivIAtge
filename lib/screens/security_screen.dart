@@ -90,7 +90,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
       children: [
         const SizedBox(height: 8),
 
-        // HEADER
+        // HEADER (unchanged)
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -130,7 +130,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // EMERGENCY CARD
+        // EMERGENCY CARD (unchanged)
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -194,7 +194,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // MEDICAL SECTION
+        // MEDICAL SECTION - Now with explanation of CAPs and hospitals
         _buildSection(
           'medical',
           Icons.favorite,
@@ -221,6 +221,28 @@ class _SecurityScreenState extends State<SecurityScreen> {
               }),
             ),
             _info(
+              '🏥',
+              t({
+                'es':
+                    'Hospitales: para emergencias graves (accidentes, infartos, etc.)',
+                'en':
+                    'Hospitals: for serious emergencies (accidents, heart attacks, etc.)',
+                'fr':
+                    'Hôpitaux : pour urgences graves (accidents, infarctus, etc.)',
+              }),
+            ),
+            _info(
+              '🩺',
+              t({
+                'es':
+                    'CAPs: Centros de Atención Primaria. Para consultas normales, revisiones y urgencias leves',
+                'en':
+                    'CAPs: Primary Care Centers. For normal consultations, check-ups and minor emergencies',
+                'fr':
+                    'CAPs : Centres de Soins Primaires. Pour consultations courantes, bilans et urgences légères',
+              }),
+            ),
+            _info(
               '💊',
               t({
                 'es': 'Farmacias de guardia 24h',
@@ -233,7 +255,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
         const SizedBox(height: 24),
 
-        // POLICE SECTION
+        // POLICE SECTION - Now with clear difference between Mossos and Guàrdia Urbana
         _buildSection(
           'police',
           Icons.shield,
@@ -244,27 +266,35 @@ class _SecurityScreenState extends State<SecurityScreen> {
           }),
           [
             _info(
-              'ME',
+              '🔵',
               t({
-                'es': 'Mossos: Policía principal en Cataluña',
-                'en': 'Mossos: Main Catalonia police',
-                'fr': 'Mossos: Police principale Catalogne',
+                'es':
+                    'Mossos d’Esquadra: Policía autonómica de Cataluña. Se encarga de la seguridad ciudadana, orden público y delitos graves en toda Cataluña.',
+                'en':
+                    'Mossos d’Esquadra: Regional police of Catalonia. Handles public safety, public order and serious crimes across all Catalonia.',
+                'fr':
+                    'Mossos d’Esquadra : Police régionale de Catalogne. Sécurité publique, ordre public et crimes graves dans toute la Catalogne.',
               }),
             ),
             _info(
-              'GU',
+              '🟡',
               t({
-                'es': 'Guàrdia Urbana: tráfico y ciudad',
-                'en': 'Urban police: traffic & city rules',
-                'fr': 'Police municipale: circulation',
+                'es':
+                    'Guàrdia Urbana: Policía municipal de Barcelona. Se encarga principalmente de tráfico, normas de ciudad y seguridad local dentro de Barcelona.',
+                'en':
+                    'Guàrdia Urbana: Barcelona municipal police. Mainly handles traffic, city regulations and local safety inside Barcelona.',
+                'fr':
+                    'Guàrdia Urbana : Police municipale de Barcelone. Circulation, règles de la ville et sécurité locale à Barcelone.',
               }),
             ),
             _info(
               'CNP',
               t({
-                'es': 'Policía Nacional: documentos y fronteras',
-                'en': 'National Police: documents & borders',
-                'fr': 'Police nationale: documents',
+                'es':
+                    'Policía Nacional: documentos, fronteras y delitos federales',
+                'en': 'National Police: documents, borders and federal crimes',
+                'fr':
+                    'Police nationale : documents, frontières et délits fédéraux',
               }),
             ),
           ],
