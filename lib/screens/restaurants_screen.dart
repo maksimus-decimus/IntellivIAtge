@@ -412,7 +412,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   ),
 
                   // Reviews
-                  if (dish.reviews != null && dish.reviews!.isNotEmpty) ...[
+                  if (dish.reviews.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
                       color: Colors.white,
@@ -435,7 +435,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          ...dish.reviews!.map((review) {
+                          ...dish.reviews.map((review) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(16),
@@ -488,7 +488,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   ],
 
                   // Recommended Restaurants
-                  if (dish.recommendedRestaurants != null && dish.recommendedRestaurants!.isNotEmpty) ...[
+                  if (dish.recommendedRestaurants.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
                       color: Colors.white,
@@ -512,7 +512,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          ...dish.recommendedRestaurants!.map((rest) {
+                          ...dish.recommendedRestaurants.map((rest) {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(16),

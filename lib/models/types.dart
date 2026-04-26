@@ -523,3 +523,343 @@ class FriendRequest {
     }
   }
 }
+
+// ============================================================================
+// TRIPS AND ROUTES SYSTEM MODELS
+// ============================================================================
+
+/// Activity within a trip day
+class Activity {
+  final String time; // e.g., "10:00", "14:30"
+  final String description;
+
+  Activity({
+    required this.time,
+    required this.description,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'time': time,
+      'description': description,
+    };
+  }
+
+  factory Activity.fromMap(Map<String, dynamic> map) {
+    return Activity(
+      time: map['time'] ?? '',
+      description: map['description'] ?? '',
+    );
+  }
+}
+
+/// Single day in a trip with activities
+class TripDay {
+  final int day; // Day number (1, 2, 3...)
+  final List<Activity> activities;
+
+  TripDay({
+    required this.day,
+    this.activities = const [],
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'day': day,
+      'activities': activities.map((a) => a.toMap()).toList(),
+    };
+  }
+
+  factory TripDay.fromMap(Map<String, dynamic> map) {
+    return TripDay(
+      day: map['day'] ?? 1,
+      activities: (map['activities'] as List<dynamic>?)
+              ?.map((a) => Activity.fromMap(a as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+/// Expense shared among trip participants
+class TripExpense {
+  final String id;
+  final String tripId;
+  final double amount;
+  final String concept; // Description of expense
+  final String paidBy; // User ID who paid
+  final List<String> sharedWith; // User IDs who share this expense
+  final DateTime timestamp;
+  final bool settled; // Whether debt has been paid
+
+  TripExpense({
+    required this.id,
+    required this.tripId,
+    required this.amount,
+    required this.concept,
+    required this.paidBy,
+    required this.sharedWith,
+    required this.timestamp,
+    this.settled = false,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'tripId': tripId,
+      'amount': amount,
+      'concept': concept,
+      'paidBy': paidBy,
+      'sharedWith': sharedWith,
+      'timestamp': timestamp.millisecondsSinceEpoch,
+      'settled': settled,
+    };
+  }
+
+  factory TripExpense.fromMap(Map<String, dynamic> map) {
+    return TripExpense(
+      id: map['id'] ?? '',
+      tripId: map['tripId'] ?? '',
+      amount: map['amount']?.toDouble() ?? 0.0,
+      concept: map['concept'] ?? '',
+      paidBy: map['paidBy'] ?? '',
+      sharedWith: List<String>.from(map['sharedWith'] ?? []),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
+      settled: map['settled'] ?? false,
+    );
+  }
+
+  TripExpense copyWith({
+    String? id,
+    String? tripId,
+    double? amount,
+    String? concept,
+    String? paidBy,
+    List<String>? sharedWith,
+    DateTime? timestamp,
+    bool? settled,
+  }) {
+    return TripExpense(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      amount: amount ?? this.amount,
+      concept: concept ?? this.concept,
+      paidBy: paidBy ?? this.paidBy,
+      sharedWith: sharedWith ?? this.sharedWith,
+      timestamp: timestamp ?? this.timestamp,
+      settled: settled ?? this.settled,
+    );
+  }
+}
+
+/// Main trip model
+class Trip {
+  final String id;
+  final String title;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String creatorId;
+  final List<String> participantIds;
+  final bool isPublic;
+  final DateTime createdAt;
+  final List<TripDay> days;
+  final List<TripExpense> expenses;
+
+  Trip({
+    required this.id,
+    required this.title,
+    required this.startDate,
+    required this.endDate,
+    required this.creatorId,
+    required this.participantIds,
+    this.isPublic = false,
+    required this.createdAt,
+    this.days = const [],
+    this.expenses = const [],
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'startDate': startDate.millisecondsSinceEpoch,
+      'endDate': endDate.millisecondsSinceEpoch,
+      'creatorId': creatorId,
+      'participantIds': participantIds,
+      'isPublic': isPublic,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'days': days.map((d) => d.toMap()).toList(),
+      'expenses': expenses.map((e) => e.toMap()).toList(),
+    };
+  }
+
+  factory Trip.fromMap(Map<String, dynamic> map) {
+    return Trip(
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      startDate: DateTime.fromMillisecondsSinceEpoch(map['startDate'] ?? 0),
+      endDate: DateTime.fromMillisecondsSinceEpoch(map['endDate'] ?? 0),
+      creatorId: map['creatorId'] ?? '',
+      participantIds: List<String>.from(map['participantIds'] ?? []),
+      isPublic: map['isPublic'] ?? false,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
+      days: (map['days'] as List<dynamic>?)
+              ?.map((d) => TripDay.fromMap(d as Map<String, dynamic>))
+              .toList() ??
+          [],
+      expenses: (map['expenses'] as List<dynamic>?)
+              ?.map((e) => TripExpense.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  Trip copyWith({
+    String? id,
+    String? title,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? creatorId,
+    List<String>? participantIds,
+    bool? isPublic,
+    DateTime? createdAt,
+    List<TripDay>? days,
+    List<TripExpense>? expenses,
+  }) {
+    return Trip(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      creatorId: creatorId ?? this.creatorId,
+      participantIds: participantIds ?? this.participantIds,
+      isPublic: isPublic ?? this.isPublic,
+      createdAt: createdAt ?? this.createdAt,
+      days: days ?? this.days,
+      expenses: expenses ?? this.expenses,
+    );
+  }
+}
+
+/// Location point in a route
+class RouteLocation {
+  final String name;
+  final double latitude;
+  final double longitude;
+  final int order; // Position in route (1, 2, 3...)
+  final String? notes;
+
+  RouteLocation({
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    required this.order,
+    this.notes,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'latitude': latitude,
+      'longitude': longitude,
+      'order': order,
+      'notes': notes,
+    };
+  }
+
+  factory RouteLocation.fromMap(Map<String, dynamic> map) {
+    return RouteLocation(
+      name: map['name'] ?? '',
+      latitude: map['latitude']?.toDouble() ?? 0.0,
+      longitude: map['longitude']?.toDouble() ?? 0.0,
+      order: map['order'] ?? 0,
+      notes: map['notes'],
+    );
+  }
+}
+
+/// Public route that users can share and follow
+class Route {
+  final String id;
+  final String title;
+  final String description;
+  final String duration; // e.g., "4-5h", "Full day"
+  final int stops; // Number of locations
+  final List<RouteLocation> locations;
+  final String googleMapsUrl;
+  final String creatorId;
+  final bool isPublic;
+  final DateTime createdAt;
+
+  Route({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.duration,
+    required this.stops,
+    required this.locations,
+    required this.googleMapsUrl,
+    required this.creatorId,
+    this.isPublic = true,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'duration': duration,
+      'stops': stops,
+      'locations': locations.map((l) => l.toMap()).toList(),
+      'googleMapsUrl': googleMapsUrl,
+      'creatorId': creatorId,
+      'isPublic': isPublic,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+    };
+  }
+
+  factory Route.fromMap(Map<String, dynamic> map) {
+    return Route(
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      duration: map['duration'] ?? '',
+      stops: map['stops'] ?? 0,
+      locations: (map['locations'] as List<dynamic>?)
+              ?.map((l) => RouteLocation.fromMap(l as Map<String, dynamic>))
+              .toList() ??
+          [],
+      googleMapsUrl: map['googleMapsUrl'] ?? '',
+      creatorId: map['creatorId'] ?? '',
+      isPublic: map['isPublic'] ?? true,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt'] ?? 0),
+    );
+  }
+
+  Route copyWith({
+    String? id,
+    String? title,
+    String? description,
+    String? duration,
+    int? stops,
+    List<RouteLocation>? locations,
+    String? googleMapsUrl,
+    String? creatorId,
+    bool? isPublic,
+    DateTime? createdAt,
+  }) {
+    return Route(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      duration: duration ?? this.duration,
+      stops: stops ?? this.stops,
+      locations: locations ?? this.locations,
+      googleMapsUrl: googleMapsUrl ?? this.googleMapsUrl,
+      creatorId: creatorId ?? this.creatorId,
+      isPublic: isPublic ?? this.isPublic,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}

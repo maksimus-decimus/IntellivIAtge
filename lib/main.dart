@@ -185,8 +185,6 @@ class _MainScreenState extends State<MainScreen> {
             _currentScreen = ScreenName.home;
           });
         });
-      default:
-        return HomeScreen(onNavigate: _handleNavigate);
     }
   }
 

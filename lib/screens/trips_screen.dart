@@ -1,53 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import '../services/trip_service.dart';
+import '../services/user_service.dart';
+import '../models/types.dart' as types;
 
 enum TripTab { trips, routes }
 
 enum TripView { list, createTrip, addPersons, expenses, details, addExpense, settleDebts }
-
-class TripItem {
-  final int id;
-  final String title;
-  final String dates;
-  final int members;
-  final bool isPublic;
-  final List<DayItem> days;
-
-  TripItem({
-    required this.id,
-    required this.title,
-    required this.dates,
-    required this.members,
-    required this.isPublic,
-    required this.days,
-  });
-}
-
-class DayItem {
-  final int day;
-  final String time;
-  final String activity;
-
-  DayItem({required this.day, required this.time, required this.activity});
-}
-
-class MapRoute {
-  final int id;
-  final String title;
-  final String duration;
-  final int stops;
-  final String googleMapsLink;
-  final String colorClass;
-
-  MapRoute({
-    required this.id,
-    required this.title,
-    required this.duration,
-    required this.stops,
-    required this.googleMapsLink,
-    required this.colorClass,
-  });
-}
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -59,54 +20,378 @@ class TripsScreen extends StatefulWidget {
 class _TripsScreenState extends State<TripsScreen> {
   TripTab _activeTab = TripTab.trips;
   TripView _activeView = TripView.list;
-  TripItem? _selectedTrip;
-
-  final List<TripItem> _mockTrips = [
-    TripItem(
-      id: 1,
-      title: 'Weekend en Barcelona',
-      dates: '24-26 Feb 2026',
-      members: 3,
-      isPublic: false,
-      days: [
-        DayItem(day: 1, time: '10:00', activity: 'Visita a la Sagrada Familia'),
-        DayItem(day: 1, time: '16:00', activity: 'Paseo por el Barrio Gótico'),
-        DayItem(day: 2, time: '11:00', activity: 'Park Güell y mirador'),
-      ],
-    ),
-    TripItem(
-      id: 2,
-      title: 'Semana Cultural',
-      dates: '1-7 Mar 2026',
-      members: 5,
-      isPublic: true,
-      days: [
-        DayItem(day: 1, time: '09:00', activity: 'Tour de Gaudí'),
-        DayItem(day: 2, time: '10:30', activity: 'Museos y arte'),
-        DayItem(day: 3, time: '14:00', activity: 'Playas de Barcelona'),
-      ],
-    ),
-  ];
-
-  final List<MapRoute> _mapRoutes = [
-    MapRoute(id: 1, title: 'Ruta Gaudí Completa', duration: '4-5h', stops: 6, googleMapsLink: 'https://maps.google.com', colorClass: 'amber'),
-    MapRoute(id: 2, title: 'Barcelona Marítima', duration: '3h', stops: 4, googleMapsLink: 'https://maps.google.com', colorClass: 'blue'),
-    MapRoute(id: 3, title: 'Barrio Gótico', duration: '2-3h', stops: 8, googleMapsLink: 'https://maps.google.com', colorClass: 'purple'),
-    MapRoute(id: 4, title: 'Montjuïc al Completo', duration: '5-6h', stops: 7, googleMapsLink: 'https://maps.google.com', colorClass: 'emerald'),
-  ];
-
-  Color _getRouteColor(String colorClass) {
-    switch (colorClass) {
-      case 'amber':
-        return const Color(0xFFFBBF24);
-      case 'blue':
-        return const Color(0xFF60A5FA);
-      case 'purple':
-        return const Color(0xFFA78BFA);
-      case 'emerald':
-        return const Color(0xFF34D399);
-      default:
-        return const Color(0xFF6EE7B7);
+  types.Trip? _selectedTrip;
+  
+  // Services
+  final TripService _tripService = TripService();
+  final UserService _userService = UserService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  // State
+  List<types.Trip> _trips = [];
+  List<types.Route> _routes = [];
+  bool _isLoadingTrips = true;
+  bool _isLoadingRoutes = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _initializeData();
+  }
+  
+  Future<void> _initializeData() async {
+    // Start polling for trips
+    await _tripService.startTripsPolling();
+    
+    // Listen to trips stream
+    _tripService.tripsStream.listen((trips) {
+      if (mounted) {
+        setState(() {
+          _trips = trips;
+          _isLoadingTrips = false;
+        });
+      }
+    });
+    
+    // Start polling for routes
+    await _tripService.startRoutesPolling();
+    
+    // Listen to routes stream
+    _tripService.routesStream.listen((routes) {
+      if (mounted) {
+        setState(() {
+          _routes = routes;
+          _isLoadingRoutes = false;
+        });
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _tripService.stopTripsPolling();
+    _tripService.stopRoutesPolling();
+    _tripNameController.dispose();
+    _friendSearchController.dispose();
+    _expenseAmountController.dispose();
+    _expenseConceptController.dispose();
+    super.dispose();
+  }
+  
+  String _formatDateRange(DateTime start, DateTime end) {
+    final formatter = DateFormat('d MMM', 'es_ES');
+    return '${formatter.format(start)} - ${formatter.format(end)}';
+  }
+  
+  // Form controllers and state
+  final TextEditingController _tripNameController = TextEditingController();
+  final TextEditingController _friendSearchController = TextEditingController();
+  final TextEditingController _expenseAmountController = TextEditingController();
+  final TextEditingController _expenseConceptController = TextEditingController();
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _isPublicTrip = false;
+  List<types.UserProfile> _friends = [];
+  List<types.UserProfile> _filteredFriends = [];
+  bool _isLoadingFriends = false;
+  List<types.TripExpense> _expenses = [];
+  Map<String, Map<String, double>> _debts = {};
+  bool _isLoadingExpenses = false;
+  String? _expensePaidBy;
+  List<String> _expenseSharedWith = [];
+  
+  Future<void> _selectStartDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked;
+        // If end date is before start date, reset it
+        if (_endDate != null && _endDate!.isBefore(picked)) {
+          _endDate = null;
+        }
+      });
+    }
+  }
+  
+  Future<void> _selectEndDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? DateTime.now(),
+      firstDate: _startDate ?? DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (picked != null) {
+      setState(() => _endDate = picked);
+    }
+  }
+  
+  Future<void> _createTrip() async {
+    // Validate inputs
+    if (_tripNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa un nombre para el viaje'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    if (_startDate == null || _endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor selecciona las fechas del viaje'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    // Create trip
+    final tripId = await _tripService.createTrip(
+      title: _tripNameController.text.trim(),
+      startDate: _startDate!,
+      endDate: _endDate!,
+      isPublic: _isPublicTrip,
+    );
+    
+    if (tripId != null) {
+      // Clear form
+      _tripNameController.clear();
+      _startDate = null;
+      _endDate = null;
+      _isPublicTrip = false;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('\u00a1Viaje creado con \u00e9xito!'), backgroundColor: Colors.cyan),
+      );
+      setState(() => _activeView = TripView.list);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al crear el viaje'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  Future<void> _loadFriends() async {
+    setState(() => _isLoadingFriends = true);
+    try {
+      final friends = await _userService.getFriends();
+      setState(() {
+        _friends = friends;
+        _filteredFriends = friends;
+        _isLoadingFriends = false;
+      });
+    } catch (e) {
+      print('Error loading friends: $e');
+      setState(() => _isLoadingFriends = false);
+    }
+  }
+  
+  void _filterFriends(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredFriends = _friends;
+      } else {
+        _filteredFriends = _friends.where((friend) {
+          final nameLower = friend.name.toLowerCase();
+          final emailLower = friend.email.toLowerCase();
+          final queryLower = query.toLowerCase();
+          return nameLower.contains(queryLower) || emailLower.contains(queryLower);
+        }).toList();
+      }
+    });
+  }
+  
+  Future<void> _addParticipant(String friendId) async {
+    if (_selectedTrip == null) return;
+    
+    // Check if already a participant
+    if (_selectedTrip!.participantIds.contains(friendId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esta persona ya est\u00e1 en el viaje'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    
+    final success = await _tripService.addParticipant(
+      tripId: _selectedTrip!.id,
+      userId: friendId,
+    );
+    
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('\u00a1Persona a\u00f1adida al viaje!'), backgroundColor: Colors.cyan),
+      );
+      // Reload trip details
+      final updatedTrip = await _tripService.getTripDetails(_selectedTrip!.id);
+      if (updatedTrip != null) {
+        setState(() => _selectedTrip = updatedTrip);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al a\u00f1adir persona'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  Widget _buildUserAvatar(String? photoUrl, {double size = 40}) {
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      // Check if it's a local asset or network image
+      final isLocalAsset = !photoUrl.startsWith('http://') && 
+                          !photoUrl.startsWith('https://');
+      
+      if (isLocalAsset) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(size),
+          child: Image.asset(
+            'assets/$photoUrl',
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: Colors.cyan[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.person, color: Colors.cyan, size: size * 0.6),
+              );
+            },
+          ),
+        );
+      } else {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(size),
+          child: Image.network(
+            photoUrl,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: Colors.cyan[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.person, color: Colors.cyan, size: size * 0.6),
+              );
+            },
+          ),
+        );
+      }
+    }
+    
+    // Default avatar
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.cyan[100],
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.person, color: Colors.cyan, size: size * 0.6),
+    );
+  }
+  
+  Future<void> _loadExpenses() async {
+    if (_selectedTrip == null) return;
+    
+    setState(() => _isLoadingExpenses = true);
+    try {
+      final expenses = await _tripService.getExpenses(_selectedTrip!.id);
+      final debts = await _tripService.calculateDebts(_selectedTrip!.id);
+      setState(() {
+        _expenses = expenses;
+        _debts = debts;
+        _isLoadingExpenses = false;
+      });
+    } catch (e) {
+      print('Error loading expenses: $e');
+      setState(() => _isLoadingExpenses = false);
+    }
+  }
+  
+  Future<void> _addExpense() async {
+    if (_selectedTrip == null) return;
+    
+    // Validate inputs
+    final amount = double.tryParse(_expenseAmountController.text);
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa un monto v\u00e1lido'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    if (_expenseConceptController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa un concepto'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    if (_expensePaidBy == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor selecciona qui\u00e9n pag\u00f3'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    if (_expenseSharedWith.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor selecciona con qui\u00e9n se comparte'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    final success = await _tripService.addExpense(
+      tripId: _selectedTrip!.id,
+      amount: amount,
+      concept: _expenseConceptController.text.trim(),
+      paidBy: _expensePaidBy!,
+      sharedWith: _expenseSharedWith,
+    );
+    
+    if (success) {
+      _expenseAmountController.clear();
+      _expenseConceptController.clear();
+      _expensePaidBy = null;
+      _expenseSharedWith = [];
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('\u00a1Gasto a\u00f1adido con \u00e9xito!'), backgroundColor: Colors.cyan),
+      );
+      
+      setState(() => _activeView = TripView.expenses);
+      _loadExpenses();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al a\u00f1adir gasto'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  Future<void> _settleExpense(String expenseId) async {
+    if (_selectedTrip == null) return;
+    
+    final success = await _tripService.settleExpense(
+      tripId: _selectedTrip!.id,
+      expenseId: expenseId,
+    );
+    
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('\u00a1Gasto marcado como pagado!'), backgroundColor: Colors.cyan),
+      );
+      _loadExpenses();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al marcar gasto'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -174,6 +459,7 @@ class _TripsScreenState extends State<TripsScreen> {
                     border: Border.all(color: Colors.grey[200]!, width: 2),
                   ),
                   child: TextField(
+                    controller: _tripNameController,
                     decoration: const InputDecoration(
                       hintText: 'Ej. Escapada a Barcelona',
                       border: InputBorder.none,
@@ -263,25 +549,24 @@ class _TripsScreenState extends State<TripsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: DropdownButton<String>(
                     isExpanded: true,
-                    underline: SizedBox.shrink(),
-                    value: 'Privado (Solo invitados)',
-                    items: [
+                    underline: const SizedBox.shrink(),
+                    value: _isPublicTrip ? 'Público (Comunidad)' : 'Privado (Solo invitados)',
+                    items: const [
                       DropdownMenuItem(value: 'Privado (Solo invitados)', child: Text('Privado (Solo invitados)')),
                       DropdownMenuItem(value: 'Público (Comunidad)', child: Text('Público (Comunidad)')),
                     ],
-                    onChanged: null,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                    onChanged: (value) {
+                      setState(() {
+                        _isPublicTrip = value == 'Público (Comunidad)';
+                      });
+                    },
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                   ),
                 ),
                 const SizedBox(height: 24),
 
                 ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('¡Viaje guardado!'), backgroundColor: Colors.cyan),
-                    );
-                    setState(() => _activeView = TripView.list);
-                  },
+                  onPressed: _createTrip,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.cyan,
                     foregroundColor: Colors.white,
@@ -301,6 +586,11 @@ class _TripsScreenState extends State<TripsScreen> {
 
   // --- ADD PERSONS VIEW ---
   Widget _buildAddPersonsView() {
+    // Load friends when entering this view
+    if (_friends.isEmpty && !_isLoadingFriends) {
+      _loadFriends();
+    }
+    
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Column(
@@ -349,6 +639,8 @@ class _TripsScreenState extends State<TripsScreen> {
                     border: Border.all(color: Colors.grey[200]!, width: 2),
                   ),
                   child: TextField(
+                    controller: _friendSearchController,
+                    onChanged: _filterFriends,
                     decoration: InputDecoration(
                       hintText: 'Buscar por nombre o email...',
                       border: InputBorder.none,
@@ -358,50 +650,85 @@ class _TripsScreenState extends State<TripsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text('Sugerencias', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF475569))),
-                const SizedBox(height: 12),
-                ...List.generate(3, (i) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey[200]!),
+                
+                // Loading state
+                if (_isLoadingFriends)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(color: Colors.cyan),
                     ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(50),
-                          child: Image.network(
-                            'https://picsum.photos/40/40?random=${i + 50}',
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
+                  )
+                // Empty state
+                else if (_filteredFriends.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          Icon(Icons.people_outline, size: 48, color: Colors.grey[300]),
+                          const SizedBox(height: 8),
+                          Text(
+                            _friends.isEmpty ? 'No tienes amigos a\u00f1adidos' : 'No se encontraron amigos',
+                            style: TextStyle(color: Colors.grey[500]),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Amigo ${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text('@amigo${i + 1}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.cyan[100],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text('Invitar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.cyan)),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  );
-                }),
+                  )
+                // Friends list
+                else ...[
+                  const Text('Amigos', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+                  const SizedBox(height: 12),
+                  ..._filteredFriends.map((friend) {
+                    final isParticipant = _selectedTrip?.participantIds.contains(friend.id) ?? false;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: isParticipant ? Colors.cyan : Colors.grey[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          _buildUserAvatar(friend.photoUrl),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(friend.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(friend.email, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                              ],
+                            ),
+                          ),
+                          if (isParticipant)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.cyan,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text('\u2713 A\u00f1adido', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                            )
+                          else
+                            GestureDetector(
+                              onTap: () => _addParticipant(friend.id),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.cyan[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text('Invitar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.cyan)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: () {},
@@ -422,6 +749,14 @@ class _TripsScreenState extends State<TripsScreen> {
 
   // --- EXPENSES VIEW ---
   Widget _buildExpensesView() {
+    // Load expenses when entering this view
+    if (_expenses.isEmpty && !_isLoadingExpenses) {
+      _loadExpenses();
+    }
+    
+    // Calculate total expense
+    final totalExpense = _expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
+    
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Column(
@@ -463,7 +798,7 @@ class _TripsScreenState extends State<TripsScreen> {
                     children: [
                       Text('Gasto Total del Viaje', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[100])),
                       const SizedBox(height: 8),
-                      const Text('€450.00', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white)),
+                      Text('\u20ac${totalExpense.toStringAsFixed(2)}', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white)),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -536,8 +871,44 @@ class _TripsScreenState extends State<TripsScreen> {
                 const SizedBox(height: 24),
                 const Text('Gastos Recientes', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF475569))),
                 const SizedBox(height: 12),
-                _buildExpenseCard(Icons.receipt, 'Cena Tapas', 'Pagado por ti', '€85.50', const Color(0xFFFB923C)),
-                _buildExpenseCard(Icons.credit_card, 'Entradas Museo', 'Pagado por Ana', '€40.00', const Color(0xFF3B82F6)),
+                
+                // Loading state
+                if (_isLoadingExpenses)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(color: Colors.cyan),
+                    ),
+                  )
+                // Empty state
+                else if (_expenses.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey[300]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No hay gastos registrados',
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                // Expenses list
+                else
+                  ..._expenses.map((expense) {
+                    final paidByName = expense.paidBy == _auth.currentUser?.uid ? 'ti' : 'otro';
+                    return _buildExpenseCard(
+                      Icons.receipt,
+                      expense.concept,
+                      'Pagado por $paidByName',
+                      '\u20ac${expense.amount.toStringAsFixed(2)}',
+                      expense.settled ? Colors.green : const Color(0xFFFB923C),
+                    );
+                  }).toList(),
               ],
             ),
           ),
@@ -625,6 +996,7 @@ class _TripsScreenState extends State<TripsScreen> {
                           Container(
                             width: 128,
                             child: TextField(
+                              controller: _expenseAmountController,
                               decoration: const InputDecoration(
                                 hintText: '0.00',
                                 border: InputBorder.none,
@@ -648,8 +1020,9 @@ class _TripsScreenState extends State<TripsScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey[200]!, width: 2),
                   ),
-                  child: const TextField(
-                    decoration: InputDecoration(
+                  child: TextField(
+                    controller: _expenseConceptController,
+                    decoration: const InputDecoration(
                       hintText: 'Ej. Cena en la playa',
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.all(12),
@@ -668,24 +1041,56 @@ class _TripsScreenState extends State<TripsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: DropdownButton<String>(
                     isExpanded: true,
-                    underline: SizedBox.shrink(),
-                    value: 'Tú',
-                    items: [
-                      DropdownMenuItem(value: 'Tú', child: Text('Tú')),
-                      DropdownMenuItem(value: 'Ana', child: Text('Ana')),
-                      DropdownMenuItem(value: 'Carlos', child: Text('Carlos')),
-                    ],
-                    onChanged: null,
+                    underline: const SizedBox.shrink(),
+                    value: _expensePaidBy ?? _auth.currentUser?.uid,
+                    hint: const Text('Selecciona qui\u00e9n pag\u00f3'),
+                    items: _selectedTrip?.participantIds.map((participantId) {
+                      final isCurrentUser = participantId == _auth.currentUser?.uid;
+                      return DropdownMenuItem(
+                        value: participantId,
+                        child: Text(isCurrentUser ? 'T\u00fa' : 'Participante'),
+                      );
+                    }).toList() ?? [],
+                    onChanged: (value) {
+                      setState(() => _expensePaidBy = value);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Compartido con', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey[200]!, width: 2),
+                  ),
+                  child: Column(
+                    children: _selectedTrip?.participantIds.map((participantId) {
+                      final isCurrentUser = participantId == _auth.currentUser?.uid;
+                      final isSelected = _expenseSharedWith.contains(participantId);
+                      return CheckboxListTile(
+                        title: Text(isCurrentUser ? 'T\u00fa' : 'Participante'),
+                        value: isSelected,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              _expenseSharedWith.add(participantId);
+                            } else {
+                              _expenseSharedWith.remove(participantId);
+                            }
+                          });
+                        },
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: Colors.cyan,
+                      );
+                    }).toList() ?? [],
                   ),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('¡Gasto guardado!'), backgroundColor: Colors.green),
-                    );
-                    setState(() => _activeView = TripView.expenses);
-                  },
+                  onPressed: _addExpense,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
@@ -732,22 +1137,57 @@ class _TripsScreenState extends State<TripsScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildDebtCard(
-                  'https://picsum.photos/40/40?random=51',
-                  'Ana te debe',
-                  'De: Entradas Museo',
-                  '€20.00',
-                  Colors.green,
-                  'Marcar pagado',
-                ),
-                _buildDebtCard(
-                  'https://picsum.photos/40/40?random=52',
-                  'Debes a Carlos',
-                  'De: Taxis',
-                  '€15.50',
-                  Colors.red,
-                  'Pagar ahora',
-                ),
+                // Loading state
+                if (_isLoadingExpenses)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(color: Colors.cyan),
+                    ),
+                  )
+                // Empty state
+                else if (_debts.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 48, color: Colors.green[300]),
+                          const SizedBox(height: 8),
+                          Text(
+                            '\u00a1No hay deudas pendientes!',
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                // Debts list
+                else
+                  ..._debts.entries.expand((entry) {
+                    final debtorId = entry.key;
+                    final creditors = entry.value;
+                    return creditors.entries.map((creditorEntry) {
+                      final amount = creditorEntry.value;
+                      final currentUserId = _auth.currentUser?.uid ?? '';
+                      
+                      // Determine if current user is the debtor or creditor
+                      final isCurrentUserDebtor = debtorId == currentUserId;
+                      final title = isCurrentUserDebtor 
+                          ? 'Debes a...' 
+                          : '...te debe';
+                      final amountColor = isCurrentUserDebtor ? Colors.red : Colors.green;
+                      
+                      return _buildDebtCard(
+                        null, // We don't have avatar info here
+                        title,
+                        'Del viaje compartido',
+                        '\u20ac${amount.toStringAsFixed(2)}',
+                        amountColor,
+                        isCurrentUserDebtor ? 'Marcar pagado' : 'Recibido',
+                      );
+                    });
+                  }).toList(),
               ],
             ),
           ),
@@ -756,7 +1196,7 @@ class _TripsScreenState extends State<TripsScreen> {
     );
   }
 
-  Widget _buildDebtCard(String avatar, String title, String subtitle, String amount, Color amountColor, String buttonText) {
+  Widget _buildDebtCard(String? avatar, String title, String subtitle, String amount, Color amountColor, String buttonText) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -767,10 +1207,12 @@ class _TripsScreenState extends State<TripsScreen> {
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(50),
-            child: Image.network(avatar, width: 40, height: 40, fit: BoxFit.cover),
-          ),
+          avatar != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(50),
+                  child: Image.network(avatar, width: 40, height: 40, fit: BoxFit.cover),
+                )
+              : _buildUserAvatar(null, size: 40),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -860,7 +1302,7 @@ class _TripsScreenState extends State<TripsScreen> {
                             Icon(Icons.calendar_today, size: 20, color: Colors.cyan[200]),
                             const SizedBox(width: 8),
                             Text(
-                              _selectedTrip?.dates ?? '',
+                              _selectedTrip != null ? _formatDateRange(_selectedTrip!.startDate, _selectedTrip!.endDate) : '',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                             ),
                           ],
@@ -878,7 +1320,7 @@ class _TripsScreenState extends State<TripsScreen> {
                             Icon(Icons.people, size: 20, color: Colors.cyan[200]),
                             const SizedBox(width: 8),
                             Text(
-                              '${_selectedTrip?.members ?? 1} personas en este viaje',
+                              '${_selectedTrip?.participantIds.length ?? 1} personas en este viaje',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                             ),
                           ],
@@ -906,63 +1348,61 @@ class _TripsScreenState extends State<TripsScreen> {
                           children: [
                             const Text('Itinerario Completo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
                             const SizedBox(height: 16),
-                            ...(_selectedTrip?.days.map((item) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 24),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Column(
-                                          children: [
-                                            Container(
-                                              width: 16,
-                                              height: 16,
-                                              decoration: BoxDecoration(
-                                                color: Colors.cyan[400],
-                                                shape: BoxShape.circle,
-                                                border: Border.all(color: Colors.white, width: 4),
-                                                boxShadow: [
-                                                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
-                                                ],
-                                              ),
-                                            ),
-                                            if ((_selectedTrip?.days.indexOf(item) ?? 0) < (_selectedTrip?.days.length ?? 0) - 1)
-                                              Container(
-                                                width: 4,
-                                                height: 60,
-                                                color: Colors.cyan[100],
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                            ...(_selectedTrip?.days.expand((day) {
+                                  return day.activities.map((activity) {
+                                    final isLast = day == _selectedTrip!.days.last && activity == day.activities.last;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 24),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Column(
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                width: 16,
+                                                height: 16,
                                                 decoration: BoxDecoration(
-                                                  color: Colors.cyan[50],
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(
-                                                  'Día ${item.day} • ${item.time}',
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.cyan),
+                                                  color: Colors.cyan[400],
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: Colors.white, width: 4),
+                                                  boxShadow: [
+                                                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
+                                                  ],
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(item.activity, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Detalles adicionales de la actividad irían aquí.',
-                                                style: TextStyle(fontSize: 13, color: Colors.grey[500], fontWeight: FontWeight.w500),
-                                              ),
+                                              if (!isLast)
+                                                Container(
+                                                  width: 4,
+                                                  height: 60,
+                                                  color: Colors.cyan[100],
+                                                ),
                                             ],
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.cyan[50],
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    'Día ${day.day} • ${activity.time}',
+                                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.cyan),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(activity.description, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  });
                                 }) ??
                                 []),
                           ],
@@ -1146,8 +1586,42 @@ class _TripsScreenState extends State<TripsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Loading state
+              if (_isLoadingTrips && _activeTab == TripTab.trips)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: CircularProgressIndicator(color: Colors.cyan),
+                  ),
+                ),
+
+              // Empty state for trips
+              if (!_isLoadingTrips && _trips.isEmpty && _activeTab == TripTab.trips)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Icon(Icons.luggage, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          '¡Crea tu primer viaje!',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Organiza tus aventuras y compártelas con amigos',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
               // Trips List
-              ..._mockTrips.map((trip) {
+              if (_activeTab == TripTab.trips)
+                ..._trips.map((trip) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
@@ -1213,7 +1687,7 @@ class _TripsScreenState extends State<TripsScreen> {
                                   children: [
                                     Icon(Icons.calendar_today, size: 16, color: Colors.cyan[100]),
                                     const SizedBox(width: 4),
-                                    Text(trip.dates, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    Text(_formatDateRange(trip.startDate, trip.endDate), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
                                   ],
                                 ),
                                 Row(
@@ -1221,7 +1695,7 @@ class _TripsScreenState extends State<TripsScreen> {
                                   children: [
                                     Icon(Icons.people, size: 16, color: Colors.cyan[100]),
                                     const SizedBox(width: 4),
-                                    Text('${trip.members} personas', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    Text('${trip.participantIds.length} personas', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
                                   ],
                                 ),
                               ],
@@ -1233,59 +1707,63 @@ class _TripsScreenState extends State<TripsScreen> {
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           children: [
-                            // Timeline
-                            ...trip.days.map((item) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Column(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: Colors.cyan[400],
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.white, width: 4),
-                                            boxShadow: [
-                                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
-                                            ],
-                                          ),
-                                        ),
-                                        if (trip.days.indexOf(item) < trip.days.length - 1)
-                                          Container(
-                                            width: 4,
-                                            height: 40,
-                                            color: Colors.cyan[100],
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                            // Timeline - flatten all activities from all days
+                            ...trip.days.expand((day) {
+                              return day.activities.map((activity) {
+                                final isLast = day == trip.days.last && 
+                                              activity == day.activities.last;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Column(
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            width: 16,
+                                            height: 16,
                                             decoration: BoxDecoration(
-                                              color: Colors.cyan[50],
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              'Día ${item.day} • ${item.time}',
-                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.cyan),
+                                              color: Colors.cyan[400],
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: Colors.white, width: 4),
+                                              boxShadow: [
+                                                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
+                                              ],
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(item.activity, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                                          if (!isLast)
+                                            Container(
+                                              width: 4,
+                                              height: 40,
+                                              color: Colors.cyan[100],
+                                            ),
                                         ],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.cyan[50],
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'Día ${day.day} • ${activity.time}',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.cyan),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(activity.description, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              });
                             }).toList(),
                           ],
                         ),
@@ -1420,10 +1898,45 @@ class _TripsScreenState extends State<TripsScreen> {
                 child: Text('Rutas Recomendadas', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
               ),
               const SizedBox(height: 12),
-              ..._mapRoutes.map((route) {
+              
+              // Loading state for routes
+              if (_isLoadingRoutes && _activeTab == TripTab.routes)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: CircularProgressIndicator(color: Colors.cyan),
+                  ),
+                ),
+
+              // Empty state for routes
+              if (!_isLoadingRoutes && _routes.isEmpty && _activeTab == TripTab.routes)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        Icon(Icons.map, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No hay rutas disponibles',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Sé el primero en crear una ruta',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              
+              if (_activeTab == TripTab.routes)
+                ..._routes.map((route) {
                 return GestureDetector(
                   onTap: () async {
-                    final url = Uri.parse(route.googleMapsLink);
+                    final url = Uri.parse(route.googleMapsUrl);
                     if (await canLaunchUrl(url)) {
                       await launchUrl(url, mode: LaunchMode.externalApplication);
                     }
@@ -1432,10 +1945,10 @@ class _TripsScreenState extends State<TripsScreen> {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _getRouteColor(route.colorClass).withOpacity(0.1),
+                      color: Colors.cyan.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                       border: Border(
-                        bottom: BorderSide(color: _getRouteColor(route.colorClass), width: 4),
+                        bottom: BorderSide(color: Colors.cyan, width: 4),
                       ),
                     ),
                     child: Row(
