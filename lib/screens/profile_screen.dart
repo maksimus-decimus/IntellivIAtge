@@ -505,6 +505,178 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
+  // Mostrar información de una estadística
+  void _showStatInfo(String title, String icon, String description, List<String> tips) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 28)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Cómo incrementar:',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...tips.map((tip) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('✓ ', style: TextStyle(color: Color(0xFF34D399), fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        tip,
+                        style: const TextStyle(color: Color(0xFF64748B)),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Entendido',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Mostrar información de una medalla
+  void _showAchievementInfo(String title, String icon, String description, String requirement, bool isLocked) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Text(
+              isLocked ? '🔒' : icon,
+              style: const TextStyle(fontSize: 28),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+            if (!isLocked)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34D399),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Desbloqueada',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 15,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isLocked ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isLocked ? const Color(0xFFF59E0B) : const Color(0xFF34D399),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    isLocked ? Icons.lock_outline : Icons.check_circle,
+                    color: isLocked ? const Color(0xFFF59E0B) : const Color(0xFF34D399),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isLocked ? requirement : '¡Completado! $requirement',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isLocked ? const Color(0xFF92400E) : const Color(0xFF065F46),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cerrar',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Mostrar ayuda y soporte
   void _showHelpAndSupport() {
     showDialog(
@@ -768,26 +940,59 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           Row(
             children: [
               Expanded(
-                child: const _StatCard(
+                child: _StatCard(
                   icon: '🏛️',
                   value: '12',
                   label: 'Lugares\nVisitados',
+                  onTap: () => _showStatInfo(
+                    'Lugares Visitados',
+                    '🏛️',
+                    'Esta estadística muestra el número total de lugares y atracciones que has visitado durante tus viajes.',
+                    [
+                      'Visita museos, monumentos y lugares históricos',
+                      'Explora atracciones turísticas en tus destinos',
+                      'Marca lugares como visitados en tus rutas',
+                      'Registra tus experiencias en cada ubicación',
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: const _StatCard(
+                child: _StatCard(
                   icon: '🗺️',
                   value: '5',
                   label: 'Rutas\nCompletadas',
+                  onTap: () => _showStatInfo(
+                    'Rutas Completadas',
+                    '🗺️',
+                    'Número de rutas de viaje que has completado exitosamente de principio a fin.',
+                    [
+                      'Planifica rutas completas con múltiples paradas',
+                      'Completa todos los lugares de una ruta',
+                      'Cierra y finaliza viajes activos',
+                      'Documenta tus experiencias al terminar',
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: const _StatCard(
+                child: _StatCard(
                   icon: '🏆',
                   value: '8',
                   label: 'Medallas\nGanadas',
+                  onTap: () => _showStatInfo(
+                    'Medallas Ganadas',
+                    '🏆',
+                    'Total de medallas y logros que has desbloqueado al completar desafíos especiales.',
+                    [
+                      'Completa objetivos específicos de viaje',
+                      'Desbloquea logros temáticos (foodie, arquitecto, etc.)',
+                      'Alcanza hitos de viajes completados',
+                      'Participa en eventos especiales de la app',
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -817,12 +1022,90 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   spacing: 16,
                   runSpacing: 16,
                   children: [
-                    const _AchievementBadge(emoji: '🏛️', label: 'Arquitecto'),
-                    const _AchievementBadge(emoji: '🍽️', label: 'Foodie'),
-                    const _AchievementBadge(emoji: '🗺️', label: 'Explorador'),
-                    const _AchievementBadge(emoji: '🌟', label: 'VIP', isLocked: true),
-                    const _AchievementBadge(emoji: '🎨', label: 'Artista', isLocked: true),
-                    const _AchievementBadge(emoji: '🏖️', label: 'Beachgoer', isLocked: true),
+                    _AchievementBadge(
+                      emoji: '🏛️',
+                      label: 'Arquitecto',
+                      description: 'Maestro de la arquitectura y la historia',
+                      requirement: 'Visita 10 monumentos históricos o edificios arquitectónicos',
+                      isLocked: false,
+                      onTap: () => _showAchievementInfo(
+                        'Arquitecto',
+                        '🏛️',
+                        'Maestro de la arquitectura y la historia',
+                        'Visita 10 monumentos históricos o edificios arquitectónicos',
+                        false,
+                      ),
+                    ),
+                    _AchievementBadge(
+                      emoji: '🍽️',
+                      label: 'Foodie',
+                      description: 'Amante de la gastronomía local',
+                      requirement: 'Prueba 15 restaurantes diferentes',
+                      isLocked: false,
+                      onTap: () => _showAchievementInfo(
+                        'Foodie',
+                        '🍽️',
+                        'Amante de la gastronomía local',
+                        'Prueba 15 restaurantes diferentes',
+                        false,
+                      ),
+                    ),
+                    _AchievementBadge(
+                      emoji: '🗺️',
+                      label: 'Explorador',
+                      description: 'Aventurero incansable',
+                      requirement: 'Completa 5 rutas de viaje',
+                      isLocked: false,
+                      onTap: () => _showAchievementInfo(
+                        'Explorador',
+                        '🗺️',
+                        'Aventurero incansable',
+                        'Completa 5 rutas de viaje',
+                        false,
+                      ),
+                    ),
+                    _AchievementBadge(
+                      emoji: '🌟',
+                      label: 'VIP',
+                      description: 'Viajero de élite con experiencia premium',
+                      requirement: 'Alcanza 50 lugares visitados',
+                      isLocked: true,
+                      onTap: () => _showAchievementInfo(
+                        'VIP',
+                        '🌟',
+                        'Viajero de élite con experiencia premium',
+                        'Alcanza 50 lugares visitados',
+                        true,
+                      ),
+                    ),
+                    _AchievementBadge(
+                      emoji: '🎨',
+                      label: 'Artista',
+                      description: 'Conocedor del arte y la cultura',
+                      requirement: 'Visita 8 museos o galerías de arte',
+                      isLocked: true,
+                      onTap: () => _showAchievementInfo(
+                        'Artista',
+                        '🎨',
+                        'Conocedor del arte y la cultura',
+                        'Visita 8 museos o galerías de arte',
+                        true,
+                      ),
+                    ),
+                    _AchievementBadge(
+                      emoji: '🏖️',
+                      label: 'Beachgoer',
+                      description: 'Amante de las playas y el sol',
+                      requirement: 'Visita 5 destinos de playa',
+                      isLocked: true,
+                      onTap: () => _showAchievementInfo(
+                        'Beachgoer',
+                        '🏖️',
+                        'Amante de las playas y el sol',
+                        'Visita 5 destinos de playa',
+                        true,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -862,47 +1145,61 @@ class _StatCard extends StatelessWidget {
   final String icon;
   final String value;
   final String label;
+  final VoidCallback? onTap;
 
   const _StatCard({
     Key? key,
     required this.icon,
     required this.value,
     required this.label,
+    this.onTap,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-      ),
-      child: Column(
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 32)),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0EA5E9),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+        ),
+        child: Column(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 32)),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0EA5E9),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF64748B),
-              height: 1.2,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF64748B),
+                height: 1.2,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            if (onTap != null) ..[
+              const SizedBox(height: 4),
+              const Icon(
+                Icons.info_outline,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -911,49 +1208,59 @@ class _StatCard extends StatelessWidget {
 class _AchievementBadge extends StatelessWidget {
   final String emoji;
   final String label;
+  final String description;
+  final String requirement;
   final bool isLocked;
+  final VoidCallback? onTap;
 
   const _AchievementBadge({
     Key? key,
     required this.emoji,
     required this.label,
+    required this.description,
+    required this.requirement,
     this.isLocked = false,
+    this.onTap,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isLocked ? 0.3 : 1.0,
-      child: Column(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: isLocked ? const Color(0xFFF1F5F9) : const Color(0xFFFEF3C7),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isLocked ? const Color(0xFFE2E8F0) : const Color(0xFFF59E0B),
-                width: 3,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(30),
+      child: Opacity(
+        opacity: isLocked ? 0.5 : 1.0,
+        child: Column(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: isLocked ? const Color(0xFFF1F5F9) : const Color(0xFFFEF3C7),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isLocked ? const Color(0xFFE2E8F0) : const Color(0xFFF59E0B),
+                  width: 3,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  isLocked ? '🔒' : emoji,
+                  style: const TextStyle(fontSize: 28),
+                ),
               ),
             ),
-            child: Center(
-              child: Text(
-                isLocked ? '🔒' : emoji,
-                style: const TextStyle(fontSize: 28),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF64748B),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
