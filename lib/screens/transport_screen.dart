@@ -1,6 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../constants/app_constants.dart';
 import '../models/types.dart';
+import 'dart:ui' as ui;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Custom Painters (used by the routes map UI)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  const _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    const dashHeight = 6.0;
+    const dashGap = 4.0;
+    double startY = 0;
+    while (startY < size.height) {
+      canvas.drawLine(
+        Offset(0, startY),
+        Offset(0, startY + dashHeight),
+        paint,
+      );
+      startY += dashHeight + dashGap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter old) => old.color != color;
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  const _TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrianglePainter old) => old.color != color;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TransportScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class TransportScreen extends StatefulWidget {
   const TransportScreen({Key? key}) : super(key: key);
@@ -10,6 +68,7 @@ class TransportScreen extends StatefulWidget {
 }
 
 class _TransportScreenState extends State<TransportScreen> {
+  // ── General tab state ──────────────────────────────────────────────────────
   String _activeTab = 'guide';
   String? _expandedInfo;
   bool _isBuying = false;
@@ -17,12 +76,112 @@ class _TransportScreenState extends State<TransportScreen> {
   int _ticketQuantity = 1;
   String _infoSearchQuery = '';
 
-  // Ticket section state
-  String _ticketCategory = 'tourist'; // 'tourist' | 'standard' | 'special'
+  // ── Ticket section state ───────────────────────────────────────────────────
+  String _ticketCategory = 'tourist';
   bool _showComparison = false;
   Set<String> _comparisonIds = {};
 
-  // Popular destinations data
+  // ── Routes / Map state ─────────────────────────────────────────────────────
+  final MapController _mapController = MapController();
+  LatLng? _userLocation;
+  LatLng? _destinationLocation;
+  String _originText = '';
+  String _destinationText = '';
+  bool _isLocating = false;
+  bool _mapExpanded = false;
+  String? _selectedMode;
+  int _routeTabIndex = 0; // 0=search, 1=nearby, 2=saved
+
+  // ── Line color lookup ──────────────────────────────────────────────────────
+  static const Map<String, Color> _lineColors = {
+    'L1': Color(0xFFE3000B),
+    'L2': Color(0xFF7B1FA2),
+    'L3': Color(0xFF007F41),
+    'L4': Color(0xFFFFD700),
+    'L5': Color(0xFF003F8A),
+    'L9S': Color(0xFFE87722),
+    'L10N': Color(0xFF009FE3),
+    'H6': Color(0xFF10B981),
+    'H10': Color(0xFF10B981),
+    '24': Color(0xFF6366F1),
+    'N4': Color(0xFF1E293B),
+    'R1': Color(0xFFE3000B),
+    'R2': Color(0xFF007F41),
+  };
+
+  // ── Nearby stops ───────────────────────────────────────────────────────────
+  final List<Map<String, dynamic>> _nearbyStops = [
+    {
+      'name': 'Passeig de Gràcia',
+      'lines': ['L2', 'L3', 'L4'],
+      'dist': '180m',
+      'emoji': '🚇',
+      'lat': 41.3916,
+      'lng': 2.1650,
+    },
+    {
+      'name': 'Diagonal',
+      'lines': ['L3', 'L5'],
+      'dist': '420m',
+      'emoji': '🚇',
+      'lat': 41.3936,
+      'lng': 2.1622,
+    },
+    {
+      'name': 'Gràcia Bus Stop',
+      'lines': ['H6', '24'],
+      'dist': '95m',
+      'emoji': '🚌',
+      'lat': 41.3918,
+      'lng': 2.1660,
+    },
+    {
+      'name': 'Verdaguer',
+      'lines': ['L4', 'L5'],
+      'dist': '610m',
+      'emoji': '🚇',
+      'lat': 41.3958,
+      'lng': 2.1639,
+    },
+  ];
+
+  // ── Saved routes ───────────────────────────────────────────────────────────
+  final List<Map<String, dynamic>> _savedRoutes = [
+    {
+      'from': 'Home',
+      'to': 'Sagrada Família',
+      'mode': 'metro',
+      'time': '12 min',
+      'emoji': '⛪',
+      'destLat': 41.4036,
+      'destLng': 2.1744,
+    },
+    {
+      'from': 'Hotel Arts',
+      'to': 'Camp Nou',
+      'mode': 'bus',
+      'time': '28 min',
+      'emoji': '🏟️',
+      'destLat': 41.3809,
+      'destLng': 2.1228,
+    },
+  ];
+
+  // ── Metro stations for map markers ─────────────────────────────────────────
+  static const List<Map<String, dynamic>> _metroStations = [
+    {'name': 'Passeig de Gràcia', 'lat': 41.3916, 'lng': 2.1650, 'line': 'L3'},
+    {'name': 'Diagonal', 'lat': 41.3936, 'lng': 2.1622, 'line': 'L5'},
+    {'name': 'Sagrada Família', 'lat': 41.4036, 'lng': 2.1744, 'line': 'L5'},
+    {'name': 'Barceloneta', 'lat': 41.3806, 'lng': 2.1873, 'line': 'L4'},
+    {'name': 'Liceu', 'lat': 41.3818, 'lng': 2.1730, 'line': 'L3'},
+    {'name': 'Universitat', 'lat': 41.3872, 'lng': 2.1639, 'line': 'L1'},
+    {'name': 'Verdaguer', 'lat': 41.3958, 'lng': 2.1639, 'line': 'L4'},
+    {'name': 'Paral·lel', 'lat': 41.3759, 'lng': 2.1668, 'line': 'L2'},
+    {'name': 'Jaume I', 'lat': 41.3832, 'lng': 2.1776, 'line': 'L4'},
+    {'name': 'Catalunya', 'lat': 41.3871, 'lng': 2.1700, 'line': 'L1'},
+  ];
+
+  // ── Popular destinations ───────────────────────────────────────────────────
   final List<Map<String, dynamic>> _popularDestinations = [
     {
       'name': 'Sagrada Família',
@@ -98,7 +257,7 @@ class _TransportScreenState extends State<TransportScreen> {
     },
   ];
 
-  // ── All ticket data ──────────────────────────────────────────────────────
+  // ── Ticket data ────────────────────────────────────────────────────────────
   final List<Map<String, dynamic>> _touristTickets = [
     {
       'id': 'hola-bcn-48',
@@ -348,7 +507,7 @@ class _TransportScreenState extends State<TransportScreen> {
         'Seasonal — check schedules'
       ],
       'ideal': 'Scenic experience',
-      'savingsVsSingle': 'Unique bird\'s-eye view',
+      'savingsVsSingle': "Unique bird's-eye view",
     },
   ];
 
@@ -365,13 +524,13 @@ class _TransportScreenState extends State<TransportScreen> {
     }
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   String _calculateTotal() {
     if (_selectedTicket == null) return '0.00€';
     final raw =
         (_selectedTicket!['price'] as String).replaceAll('€', '').trim();
     final unitPrice = double.tryParse(raw) ?? 0.0;
-    final total = unitPrice * _ticketQuantity;
-    return '${total.toStringAsFixed(2)}€';
+    return '${(unitPrice * _ticketQuantity).toStringAsFixed(2)}€';
   }
 
   void _onTabChanged(String newTab) {
@@ -394,14 +553,199 @@ class _TransportScreenState extends State<TransportScreen> {
     });
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  //  MAP / LOCATION HELPERS
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Future<void> _locateUser() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled');
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied)
+          throw Exception('Permission denied');
+      }
+      if (permission == LocationPermission.deniedForever)
+        throw Exception('Permission permanently denied');
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      setState(() {
+        _userLocation = LatLng(position.latitude, position.longitude);
+        _isLocating = false;
+      });
+      _mapController.move(_userLocation!, 15);
+    } catch (_) {
+      // Fallback to Barcelona city centre for demo
+      setState(() {
+        _userLocation = const LatLng(41.3851, 2.1734);
+        _isLocating = false;
+      });
+      _mapController.move(const LatLng(41.3851, 2.1734), 15);
+    }
+  }
+
+  void _searchRoute() {
+    if (_destinationLocation == null) {
+      setState(() => _destinationLocation = const LatLng(41.4036, 2.1744));
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.route, color: Colors.white, size: 16),
+            SizedBox(width: 8),
+            Text('Calculando la mejor ruta...'),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E293B),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  List<Marker> _buildMetroMarkers() {
+    return _metroStations.map((s) {
+      final color = _lineColors[s['line'] as String] ?? const Color(0xFF6366F1);
+      return Marker(
+        point: LatLng(s['lat'] as double, s['lng'] as double),
+        width: 48,
+        height: 48,
+        child: GestureDetector(
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${s['name']} — ${s['line']}'),
+                backgroundColor: color,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(color: color.withOpacity(0.45), blurRadius: 6)
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    (s['line'] as String).replaceAll('L', ''),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+              Container(width: 2, height: 6, color: color),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Marker _buildUserMarker() {
+    return Marker(
+      point: _userLocation!,
+      width: 50,
+      height: 50,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0EA5E9).withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+          ),
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0EA5E9),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0xFF0EA5E9).withOpacity(0.5),
+                    blurRadius: 8)
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Marker _buildDestinationMarker() {
+    return Marker(
+      point: _destinationLocation!,
+      width: 40,
+      height: 48,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEC4899),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0xFFEC4899).withOpacity(0.5),
+                    blurRadius: 8)
+              ],
+            ),
+            child: const Icon(Icons.place, color: Colors.white, size: 18),
+          ),
+          CustomPaint(
+            painter: const _TrianglePainter(color: Color(0xFFEC4899)),
+            size: const Size(12, 8),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<LatLng> _buildRoutePath(LatLng origin, LatLng dest) {
+    final mid = LatLng(
+      (origin.latitude + dest.latitude) / 2,
+      (origin.longitude + dest.longitude) / 2 + 0.003,
+    );
+    return [origin, mid, dest];
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  BUILD
+  // ════════════════════════════════════════════════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
-    if (_isBuying && _selectedTicket != null) {
-      return _buildPurchaseScreen();
-    }
-    if (_showComparison && _comparisonIds.isNotEmpty) {
+    if (_isBuying && _selectedTicket != null) return _buildPurchaseScreen();
+    if (_showComparison && _comparisonIds.isNotEmpty)
       return _buildComparisonScreen();
-    }
 
     return Column(
       children: [
@@ -422,6 +766,7 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
+  // ── Tab bar ────────────────────────────────────────────────────────────────
   Widget _buildTabs() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -454,10 +799,9 @@ class _TransportScreenState extends State<TransportScreen> {
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2))
                   ]
                 : null,
           ),
@@ -479,28 +823,954 @@ class _TransportScreenState extends State<TransportScreen> {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  TICKETS TAB — EXPANDED
+  //  ROUTES TAB — Enhanced with flutter_map
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildRoutesTab() {
+    return Column(
+      children: [
+        _buildRouteSubTabs(),
+        const SizedBox(height: 16),
+        if (_routeTabIndex == 0) _buildRouteSearch(),
+        if (_routeTabIndex == 1) _buildNearbyStops(),
+        if (_routeTabIndex == 2) _buildSavedRoutes(),
+      ],
+    );
+  }
+
+  // ── Sub-tab bar ────────────────────────────────────────────────────────────
+  Widget _buildRouteSubTabs() {
+    final tabs = [
+      {'label': '🔍 Buscar', 'idx': 0},
+      {'label': '📍 Cercanos', 'idx': 1},
+      {'label': '⭐ Guardados', 'idx': 2},
+    ];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: tabs.map((t) {
+          final active = _routeTabIndex == t['idx'];
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _routeTabIndex = t['idx'] as int),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: active ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2))
+                        ]
+                      : [],
+                ),
+                child: Center(
+                  child: Text(
+                    t['label'] as String,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: active
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── Search sub-tab ─────────────────────────────────────────────────────────
+  Widget _buildRouteSearch() {
+    return Column(
+      children: [
+        // Input card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4))
+            ],
+          ),
+          child: Column(
+            children: [
+              // Origin + destination inputs
+              Stack(
+                children: [
+                  Positioned(
+                    left: 15,
+                    top: 36,
+                    bottom: 36,
+                    child: CustomPaint(
+                      painter:
+                          const _DashedLinePainter(color: Color(0xFFCBD5E1)),
+                      size: const Size(2, double.infinity),
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      _buildStyledLocationInput(
+                        hint: 'Mi ubicación actual',
+                        dotColor: const Color(0xFF0EA5E9),
+                        icon: Icons.my_location,
+                        trailing: GestureDetector(
+                          onTap: _locateUser,
+                          child: _isLocating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Color(0xFF0EA5E9)),
+                                )
+                              : const Icon(Icons.gps_fixed,
+                                  size: 18, color: Color(0xFF0EA5E9)),
+                        ),
+                        onChanged: (v) => setState(() => _originText = v),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStyledLocationInput(
+                        hint: '¿A dónde quieres ir?',
+                        dotColor: const Color(0xFFEC4899),
+                        icon: Icons.place,
+                        onChanged: (v) => setState(() => _destinationText = v),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildTransportModeSelector(),
+              const SizedBox(height: 16),
+              // Search button
+              GestureDetector(
+                onTap: _searchRoute,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1E293B), Color(0xFF334155)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                          color: const Color(0xFF1E293B).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4))
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.route, color: Colors.white, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        'Calcular Ruta',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildInteractiveMap(),
+        const SizedBox(height: 16),
+        _buildQuickDestinations(),
+      ],
+    );
+  }
+
+  // ── Styled location input ──────────────────────────────────────────────────
+  Widget _buildStyledLocationInput({
+    required String hint,
+    required Color dotColor,
+    required IconData icon,
+    required ValueChanged<String> onChanged,
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: dotColor.withOpacity(0.12),
+            shape: BoxShape.circle,
+            border: Border.all(color: dotColor, width: 2.5),
+          ),
+          child: Icon(icon, size: 14, color: dotColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: onChanged,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B)),
+                    decoration: InputDecoration(
+                      hintText: hint,
+                      hintStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF94A3B8),
+                          fontSize: 13),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                if (trailing != null) trailing,
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Transport mode selector ────────────────────────────────────────────────
+  Widget _buildTransportModeSelector() {
+    final modes = [
+      {
+        'id': 'metro',
+        'icon': '🚇',
+        'label': 'Metro',
+        'time': '~12 min',
+        'color': const Color(0xFF6366F1)
+      },
+      {
+        'id': 'bus',
+        'icon': '🚌',
+        'label': 'Bus',
+        'time': '~18 min',
+        'color': const Color(0xFF10B981)
+      },
+      {
+        'id': 'walk',
+        'icon': '🚶',
+        'label': 'A pie',
+        'time': '~35 min',
+        'color': const Color(0xFFF59E0B)
+      },
+      {
+        'id': 'bike',
+        'icon': '🚲',
+        'label': 'Bicing',
+        'time': '~20 min',
+        'color': const Color(0xFFEF4444)
+      },
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Modo de transporte',
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF64748B)),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: modes.asMap().entries.map((entry) {
+            final i = entry.key;
+            final m = entry.value;
+            final isSelected = _selectedMode == m['id'];
+            final color = m['color'] as Color;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedMode = m['id'] as String),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: EdgeInsets.only(right: i < modes.length - 1 ? 8 : 0),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? color.withOpacity(0.12)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? color : const Color(0xFFE2E8F0),
+                      width: isSelected ? 2 : 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(m['icon'] as String,
+                          style: const TextStyle(fontSize: 20)),
+                      const SizedBox(height: 3),
+                      Text(m['label'] as String,
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: isSelected
+                                  ? color
+                                  : const Color(0xFF64748B))),
+                      Text(m['time'] as String,
+                          style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? color.withOpacity(0.7)
+                                  : const Color(0xFF94A3B8))),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // ── Interactive Map ────────────────────────────────────────────────────────
+  Widget _buildInteractiveMap() {
+    const defaultCenter = LatLng(41.3851, 2.1734);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 6))
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Map
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 350),
+            height: _mapExpanded ? 420 : 270,
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _userLocation ?? defaultCenter,
+                initialZoom: 14.5,
+                interactionOptions:
+                    const InteractionOptions(flags: InteractiveFlag.all),
+                onTap: (tapPosition, point) {
+                  setState(() => _destinationLocation = point);
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                  userAgentPackageName: 'com.example.barcelonatransport',
+                  retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
+                ),
+                // Route polyline
+                if (_userLocation != null && _destinationLocation != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: _buildRoutePath(
+                            _userLocation!, _destinationLocation!),
+                        color: const Color(0xFF6366F1),
+                        strokeWidth: 4.5,
+                      ),
+                    ],
+                  ),
+                // Markers
+                MarkerLayer(
+                  markers: [
+                    ..._buildMetroMarkers(),
+                    if (_userLocation != null) _buildUserMarker(),
+                    if (_destinationLocation != null) _buildDestinationMarker(),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Expand/collapse + zoom controls (top-right)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Column(
+              children: [
+                _buildMapControlBtn(
+                  icon: _mapExpanded ? Icons.fullscreen_exit : Icons.fullscreen,
+                  onTap: () => setState(() => _mapExpanded = !_mapExpanded),
+                ),
+                const SizedBox(height: 8),
+                _buildMapControlBtn(
+                  icon: Icons.add,
+                  onTap: () => _mapController.move(_mapController.camera.center,
+                      _mapController.camera.zoom + 1),
+                ),
+                const SizedBox(height: 4),
+                _buildMapControlBtn(
+                  icon: Icons.remove,
+                  onTap: () => _mapController.move(_mapController.camera.center,
+                      _mapController.camera.zoom - 1),
+                ),
+                const SizedBox(height: 8),
+                _buildMapControlBtn(
+                  icon: Icons.my_location,
+                  onTap: _locateUser,
+                  iconColor: const Color(0xFF0EA5E9),
+                ),
+              ],
+            ),
+          ),
+
+          // "Tap to set destination" hint (top-left)
+          Positioned(
+            top: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.92),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.08), blurRadius: 6)
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.touch_app, size: 12, color: Color(0xFF6366F1)),
+                  SizedBox(width: 4),
+                  Text('Toca el mapa para marcar destino',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569))),
+                ],
+              ),
+            ),
+          ),
+
+          // Layer toggle pills (bottom-left)
+          Positioned(
+            bottom: 12,
+            left: 12,
+            child: _buildMapLayerPills(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapControlBtn(
+      {required IconData icon, required VoidCallback onTap, Color? iconColor}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child:
+            Icon(icon, size: 18, color: iconColor ?? const Color(0xFF1E293B)),
+      ),
+    );
+  }
+
+  Widget _buildMapLayerPills() {
+    final layers = [
+      {'label': '🚇 Metro', 'active': true},
+      {'label': '🚌 Bus', 'active': false},
+      {'label': '🚲 Bicing', 'active': false},
+    ];
+    return Row(
+      children: layers.map((l) {
+        final active = l['active'] as bool;
+        return Container(
+          margin: const EdgeInsets.only(right: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: active
+                ? const Color(0xFF1E293B)
+                : Colors.white.withOpacity(0.92),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6)
+            ],
+          ),
+          child: Text(
+            l['label'] as String,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: active ? Colors.white : const Color(0xFF475569),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── Quick destination chips ────────────────────────────────────────────────
+  Widget _buildQuickDestinations() {
+    final dests = [
+      {'name': 'Sagrada Família', 'emoji': '⛪', 'lat': 41.4036, 'lng': 2.1744},
+      {'name': 'Park Güell', 'emoji': '🌿', 'lat': 41.4145, 'lng': 2.1527},
+      {'name': 'Barceloneta', 'emoji': '🏖️', 'lat': 41.3793, 'lng': 2.1899},
+      {'name': 'Camp Nou', 'emoji': '🏟️', 'lat': 41.3809, 'lng': 2.1228},
+      {'name': 'La Boqueria', 'emoji': '🛒', 'lat': 41.3820, 'lng': 2.1726},
+      {'name': 'Montjuïc', 'emoji': '🏰', 'lat': 41.3643, 'lng': 2.1595},
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 10),
+          child: Text('Destinos rápidos',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E293B))),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: dests.map((d) {
+              return GestureDetector(
+                onTap: () {
+                  final loc = LatLng(d['lat'] as double, d['lng'] as double);
+                  setState(() => _destinationLocation = loc);
+                  _mapController.move(loc, 14);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(d['emoji'] as String,
+                          style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 6),
+                      Text(d['name'] as String,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1E293B))),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Nearby stops sub-tab ───────────────────────────────────────────────────
+  Widget _buildNearbyStops() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Mini map
+        Container(
+          height: 170,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12)
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: FlutterMap(
+            options: MapOptions(
+              initialCenter: _userLocation ?? const LatLng(41.3851, 2.1734),
+              initialZoom: 15,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                userAgentPackageName: 'com.example.barcelonatransport',
+              ),
+              MarkerLayer(markers: _buildMetroMarkers()),
+              if (_userLocation != null)
+                MarkerLayer(markers: [_buildUserMarker()]),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Text('Paradas cercanas',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B))),
+            const Spacer(),
+            GestureDetector(
+              onTap: _locateUser,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0EA5E9).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    _isLocating
+                        ? const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Color(0xFF0EA5E9)),
+                          )
+                        : const Icon(Icons.refresh,
+                            size: 14, color: Color(0xFF0EA5E9)),
+                    const SizedBox(width: 4),
+                    const Text('Actualizar',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0EA5E9))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._nearbyStops.map((stop) => _buildNearbyStopCard(stop)),
+      ],
+    );
+  }
+
+  Widget _buildNearbyStopCard(Map<String, dynamic> stop) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3))
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12)),
+            child: Center(
+                child: Text(stop['emoji'] as String,
+                    style: const TextStyle(fontSize: 22))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stop['name'] as String,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E293B))),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 4,
+                  children: (stop['lines'] as List<String>).map((l) {
+                    final c = _lineColors[l] ?? const Color(0xFF6366F1);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                          color: c.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6)),
+                      child: Text(l,
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: c)),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Text(stop['dist'] as String,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF16A34A))),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _destinationLocation =
+                        LatLng(stop['lat'] as double, stop['lng'] as double);
+                    _routeTabIndex = 0;
+                  });
+                },
+                child: const Text('Ir →',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF6366F1))),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Saved routes sub-tab ───────────────────────────────────────────────────
+  Widget _buildSavedRoutes() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_savedRoutes.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+            ),
+            child: const Center(
+              child: Column(children: [
+                Text('⭐', style: TextStyle(fontSize: 36)),
+                SizedBox(height: 12),
+                Text('Sin rutas guardadas',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: Color(0xFF1E293B))),
+                SizedBox(height: 4),
+                Text('Busca una ruta y guárdala aquí.',
+                    style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+              ]),
+            ),
+          )
+        else ...[
+          const Text('Rutas guardadas',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E293B))),
+          const SizedBox(height: 12),
+          ..._savedRoutes.map((r) => _buildSavedRouteCard(r)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSavedRouteCard(Map<String, dynamic> route) {
+    final modeColors = {
+      'metro': const Color(0xFF6366F1),
+      'bus': const Color(0xFF10B981),
+      'walk': const Color(0xFFF59E0B),
+      'bike': const Color(0xFFEF4444),
+    };
+    final color =
+        modeColors[route['mode'] as String] ?? const Color(0xFF6366F1);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3))
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(route['emoji'] as String, style: const TextStyle(fontSize: 28)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(route['from'] as String,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B))),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(Icons.arrow_forward,
+                          size: 12, color: Color(0xFF94A3B8)),
+                    ),
+                    Flexible(
+                      child: Text(route['to'] as String,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1E293B))),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6)),
+                      child: Text(route['mode'] as String,
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: color)),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.timer_outlined,
+                        size: 12, color: Color(0xFF94A3B8)),
+                    const SizedBox(width: 3),
+                    Text(route['time'] as String,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _destinationLocation = LatLng(
+                    route['destLat'] as double, route['destLng'] as double);
+                _routeTabIndex = 0;
+              });
+              _mapController.move(
+                  LatLng(
+                      route['destLat'] as double, route['destLng'] as double),
+                  14);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(12)),
+              child: const Text('Ir →',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  TICKETS TAB
   // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildTicketsTab() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Smart recommender banner ────────────────────────────────────────
         _buildRecommenderBanner(),
         const SizedBox(height: 20),
-
-        // ── Category picker ─────────────────────────────────────────────────
         _buildCategoryPicker(),
         const SizedBox(height: 20),
-
-        // ── Comparison bar (shown when items selected) ──────────────────────
         if (_comparisonIds.isNotEmpty) ...[
           _buildComparisonBar(),
           const SizedBox(height: 12),
         ],
-
-        // ── Section header ──────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 16),
           child: Row(
@@ -535,19 +1805,11 @@ class _TransportScreenState extends State<TransportScreen> {
             ],
           ),
         ),
-
-        // ── Ticket cards ────────────────────────────────────────────────────
         ..._currentTickets.map((ticket) => _buildExpandedTicketCard(ticket)),
-
-        // ── Price guide section ─────────────────────────────────────────────
         const SizedBox(height: 24),
         _buildPriceGuide(),
-
-        // ── Where to buy ────────────────────────────────────────────────────
         const SizedBox(height: 20),
         _buildWhereToBuy(),
-
-        // ── FAQ ─────────────────────────────────────────────────────────────
         const SizedBox(height: 20),
         _buildFAQ(),
       ],
@@ -568,25 +1830,21 @@ class _TransportScreenState extends State<TransportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Text('🤔', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 8),
-              Text('Not sure which ticket?',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: Colors.white)),
-            ],
-          ),
+          const Row(children: [
+            Text('🤔', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 8),
+            Text('Not sure which ticket?',
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Colors.white)),
+          ]),
           const SizedBox(height: 8),
-          const Text(
-            'Quick rule of thumb:',
-            style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                color: Color(0xFF94A3B8)),
-          ),
+          const Text('Quick rule of thumb:',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8))),
           const SizedBox(height: 8),
           _buildRuleRow('✈️', 'Arriving/leaving by airport?',
               'Hola BCN pass (includes L9)'),
@@ -612,15 +1870,14 @@ class _TransportScreenState extends State<TransportScreen> {
                 style: const TextStyle(fontSize: 12, height: 1.4),
                 children: [
                   TextSpan(
-                    text: '$question ',
-                    style: const TextStyle(
-                        color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
-                  ),
+                      text: '$question ',
+                      style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w600)),
                   TextSpan(
-                    text: '→ $answer',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w900),
-                  ),
+                      text: '→ $answer',
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w900)),
                 ],
               ),
             ),
@@ -636,9 +1893,10 @@ class _TransportScreenState extends State<TransportScreen> {
       {'id': 'standard', 'label': '🎟️ Standard', 'sub': 'Tickets'},
       {'id': 'special', 'label': '✨ Special', 'sub': 'Extras'},
     ];
-
     return Row(
-      children: categories.map((cat) {
+      children: categories.asMap().entries.map((entry) {
+        final i = entry.key;
+        final cat = entry.value;
         final isActive = _ticketCategory == cat['id'];
         return Expanded(
           child: GestureDetector(
@@ -647,16 +1905,17 @@ class _TransportScreenState extends State<TransportScreen> {
               _comparisonIds.clear();
             }),
             child: Container(
-              margin: EdgeInsets.only(right: cat['id'] == 'special' ? 0 : 8),
+              margin: EdgeInsets.only(right: i < categories.length - 1 ? 8 : 0),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 color: isActive ? const Color(0xFF1E293B) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                    color: isActive
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFE2E8F0),
-                    width: 2),
+                  color: isActive
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFE2E8F0),
+                  width: 2,
+                ),
               ),
               child: Column(
                 children: [
@@ -691,7 +1950,6 @@ class _TransportScreenState extends State<TransportScreen> {
     ];
     final selected =
         allTickets.where((t) => _comparisonIds.contains(t['id'])).toList();
-
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -718,8 +1976,7 @@ class _TransportScreenState extends State<TransportScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                                color: (t['color'] as Color)
-                                    .withValues(alpha: 0.15),
+                                color: (t['color'] as Color).withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(8)),
                             child: Text(t['name'],
                                 style: TextStyle(
@@ -756,7 +2013,6 @@ class _TransportScreenState extends State<TransportScreen> {
   Widget _buildExpandedTicketCard(Map<String, dynamic> ticket) {
     final inComparison = _comparisonIds.contains(ticket['id']);
     final features = ticket['features'] as List<String>;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -769,7 +2025,7 @@ class _TransportScreenState extends State<TransportScreen> {
             width: inComparison ? 2.5 : 2),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 12,
               offset: const Offset(0, 4))
         ],
@@ -777,7 +2033,7 @@ class _TransportScreenState extends State<TransportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ────────────────────────────────────────────────────────
+          // Header
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -790,8 +2046,7 @@ class _TransportScreenState extends State<TransportScreen> {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                          color: (ticket['color'] as Color)
-                              .withValues(alpha: 0.25),
+                          color: (ticket['color'] as Color).withOpacity(0.25),
                           blurRadius: 8,
                           offset: const Offset(0, 3))
                     ],
@@ -853,8 +2108,7 @@ class _TransportScreenState extends State<TransportScreen> {
               ],
             ),
           ),
-
-          // ── Features list ─────────────────────────────────────────────────
+          // Features
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: Wrap(
@@ -885,8 +2139,7 @@ class _TransportScreenState extends State<TransportScreen> {
                   .toList(),
             ),
           ),
-
-          // ── Savings banner ────────────────────────────────────────────────
+          // Savings
           if (ticket['savingsVsSingle'] != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -912,13 +2165,11 @@ class _TransportScreenState extends State<TransportScreen> {
                 ),
               ),
             ),
-
-          // ── Action row ────────────────────────────────────────────────────
+          // Action row
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Compare toggle
                 GestureDetector(
                   onTap: () => _toggleComparison(ticket['id']),
                   child: Container(
@@ -926,7 +2177,7 @@ class _TransportScreenState extends State<TransportScreen> {
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                         color: inComparison
-                            ? (ticket['color'] as Color).withValues(alpha: 0.12)
+                            ? (ticket['color'] as Color).withOpacity(0.12)
                             : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(12),
                         border: inComparison
@@ -956,7 +2207,6 @@ class _TransportScreenState extends State<TransportScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Buy button
                 Expanded(
                   child: GestureDetector(
                     onTap: (ticket['priceValue'] as double) == 0
@@ -977,21 +2227,22 @@ class _TransportScreenState extends State<TransportScreen> {
                               : [
                                   BoxShadow(
                                       color: (ticket['color'] as Color)
-                                          .withValues(alpha: 0.3),
+                                          .withOpacity(0.3),
                                       blurRadius: 6,
                                       offset: const Offset(0, 3))
                                 ]),
                       child: Center(
                         child: Text(
-                            (ticket['priceValue'] as double) == 0
-                                ? 'Free with metro ticket'
-                                : 'Buy Now — ${ticket['price']}',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: (ticket['priceValue'] as double) == 0
-                                    ? const Color(0xFF64748B)
-                                    : Colors.white)),
+                          (ticket['priceValue'] as double) == 0
+                              ? 'Free with metro ticket'
+                              : 'Buy Now — ${ticket['price']}',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: (ticket['priceValue'] as double) == 0
+                                  ? const Color(0xFF64748B)
+                                  : Colors.white),
+                        ),
                       ),
                     ),
                   ),
@@ -1004,7 +2255,6 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  // ── Price Guide ──────────────────────────────────────────────────────────
   Widget _buildPriceGuide() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1014,24 +2264,22 @@ class _TransportScreenState extends State<TransportScreen> {
           border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withOpacity(0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 4))
           ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Text('💶', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 8),
-              Text('Price at a Glance',
-                  style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B))),
-            ],
-          ),
+          const Row(children: [
+            Text('💶', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 8),
+            Text('Price at a Glance',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B))),
+          ]),
           const SizedBox(height: 16),
           _buildPriceRow('Single trip', '2.55€', const Color(0xFF64748B)),
           _buildPriceRow(
@@ -1056,7 +2304,7 @@ class _TransportScreenState extends State<TransportScreen> {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF475569))),
-          )
+          ),
         ],
       ),
     );
@@ -1088,35 +2336,33 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  // ── Where to Buy ─────────────────────────────────────────────────────────
   Widget _buildWhereToBuy() {
     final places = [
       {
         'icon': '🏧',
         'name': 'Station Machines',
         'desc': 'Red machines at every metro entrance. Accept card & cash.',
-        'color': const Color(0xFFEF4444),
+        'color': const Color(0xFFEF4444)
       },
       {
         'icon': '📱',
         'name': 'TMB App',
         'desc': 'Buy and store digital tickets. Works offline on metro.',
-        'color': const Color(0xFF0EA5E9),
+        'color': const Color(0xFF0EA5E9)
       },
       {
         'icon': '🖥️',
         'name': 'TMB Website',
         'desc': 'tmb.cat — order in advance and collect at machines.',
-        'color': const Color(0xFF6366F1),
+        'color': const Color(0xFF6366F1)
       },
       {
         'icon': '🏪',
         'name': 'Tobacco Shops',
         'desc': 'Estancs / quioscos often sell T-Casual and single tickets.',
-        'color': const Color(0xFF10B981),
+        'color': const Color(0xFF10B981)
       },
     ];
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1125,24 +2371,22 @@ class _TransportScreenState extends State<TransportScreen> {
           border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withOpacity(0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 4))
           ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Text('🛍️', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 8),
-              Text('Where to Buy',
-                  style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B))),
-            ],
-          ),
+          const Row(children: [
+            Text('🛍️', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 8),
+            Text('Where to Buy',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B))),
+          ]),
           const SizedBox(height: 16),
           ...places.map((p) => Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -1157,7 +2401,7 @@ class _TransportScreenState extends State<TransportScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                          color: (p['color'] as Color).withValues(alpha: 0.12),
+                          color: (p['color'] as Color).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(10)),
                       child: Center(
                           child: Text(p['icon'] as String,
@@ -1191,36 +2435,34 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  // ── FAQ ───────────────────────────────────────────────────────────────────
   Widget _buildFAQ() {
     final faqs = [
       {
         'q': 'Can I share a T-Casual between two people?',
         'a':
-            'No — the T-Casual is personal and non-transferable. The Hola BCN passes are also personal.',
+            'No — the T-Casual is personal and non-transferable. The Hola BCN passes are also personal.'
       },
       {
         'q': 'Does Hola Barcelona cover the airport?',
         'a':
-            'Yes! All Hola Barcelona passes include the Metro L9 Sud to airport T1 and T2 — no extra charge.',
+            'Yes! All Hola Barcelona passes include the Metro L9 Sud to airport T1 and T2 — no extra charge.'
       },
       {
         'q': 'Is the Aerobus included in the Hola BCN pass?',
         'a':
-            'No. The Aerobus is a private service and requires a separate ticket, even with a Hola BCN pass.',
+            'No. The Aerobus is a private service and requires a separate ticket, even with a Hola BCN pass.'
       },
       {
         'q': 'Can I use contactless payment on the metro gates?',
         'a':
-            'Yes — you can tap your bank card or phone directly at the gate for a single trip at 2.55€.',
+            'Yes — you can tap your bank card or phone directly at the gate for a single trip at 2.55€.'
       },
       {
-        'q': 'What happens if my T-Casual runs out mid-journey?',
+        'q': "What happens if my T-Casual runs out mid-journey?",
         'a':
-            'You\'ll need to buy a new ticket. The gate won\'t let you through with 0 trips remaining.',
+            "You'll need to buy a new ticket. The gate won't let you through with 0 trips remaining."
       },
     ];
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1229,24 +2471,22 @@ class _TransportScreenState extends State<TransportScreen> {
           border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withOpacity(0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 4))
           ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Text('❓', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 8),
-              Text('FAQ',
-                  style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B))),
-            ],
-          ),
+          const Row(children: [
+            Text('❓', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 8),
+            Text('FAQ',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B))),
+          ]),
           const SizedBox(height: 16),
           ...faqs.map((faq) => Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -1278,7 +2518,10 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  // ── Side-by-side Comparison Screen ──────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════════
+  //  COMPARISON SCREEN
+  // ════════════════════════════════════════════════════════════════════════════
+
   Widget _buildComparisonScreen() {
     final allTickets = [
       ..._touristTickets,
@@ -1287,8 +2530,6 @@ class _TransportScreenState extends State<TransportScreen> {
     ];
     final selected =
         allTickets.where((t) => _comparisonIds.contains(t['id'])).toList();
-    final fields = ['Price', 'Ideal for', 'Savings'];
-
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1320,7 +2561,6 @@ class _TransportScreenState extends State<TransportScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Header row
                   Row(
                     children: [
                       const SizedBox(width: 80),
@@ -1349,7 +2589,6 @@ class _TransportScreenState extends State<TransportScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Data rows
                   _buildComparisonRow('Price',
                       selected.map((t) => t['price'] as String).toList()),
                   _buildComparisonRow(
@@ -1363,18 +2602,16 @@ class _TransportScreenState extends State<TransportScreen> {
                           .map((t) => (t['savingsVsSingle'] ?? '—') as String)
                           .toList()),
                   const SizedBox(height: 12),
-                  // Features comparison
-                  ...List.generate(4, (fi) {
-                    return _buildComparisonRow(
-                      'Feature ${fi + 1}',
-                      selected.map((t) {
-                        final feats = t['features'] as List<String>;
-                        return fi < feats.length ? feats[fi] : '—';
-                      }).toList(),
-                    );
-                  }),
+                  ...List.generate(
+                      4,
+                      (fi) => _buildComparisonRow(
+                            'Feature ${fi + 1}',
+                            selected.map((t) {
+                              final feats = t['features'] as List<String>;
+                              return fi < feats.length ? feats[fi] : '—';
+                            }).toList(),
+                          )),
                   const SizedBox(height: 20),
-                  // Buy buttons
                   Row(
                     children: [
                       const SizedBox(width: 88),
@@ -1470,10 +2707,9 @@ class _TransportScreenState extends State<TransportScreen> {
               border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8))
               ],
             ),
             child: Column(
@@ -1486,51 +2722,39 @@ class _TransportScreenState extends State<TransportScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: (_selectedTicket!['color'] as Color)
-                            .withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
+                          color: (_selectedTicket!['color'] as Color)
+                              .withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4))
                     ],
                   ),
                   child: Center(
-                    child: Text(
-                      _selectedTicket!['icon'] ?? '🎟️',
-                      style: const TextStyle(fontSize: 30),
-                    ),
-                  ),
+                      child: Text(_selectedTicket!['icon'] ?? '🎟️',
+                          style: const TextStyle(fontSize: 30))),
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  _selectedTicket!['name'],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E293B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                Text(_selectedTicket!['name'],
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E293B)),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 4),
-                Text(
-                  _selectedTicket!['desc'],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF64748B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                Text(_selectedTicket!['desc'],
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B)),
+                    textAlign: TextAlign.center),
                 const SizedBox(height: 24),
-
-                // Quantity selector
+                // Quantity
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0))),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1549,11 +2773,10 @@ class _TransportScreenState extends State<TransportScreen> {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: _ticketQuantity > 1
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                                  color: _ticketQuantity > 1
+                                      ? const Color(0xFF1E293B)
+                                      : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(10)),
                               child: Icon(Icons.remove,
                                   size: 18,
                                   color: _ticketQuantity > 1
@@ -1579,11 +2802,10 @@ class _TransportScreenState extends State<TransportScreen> {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: _ticketQuantity < 10
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                                  color: _ticketQuantity < 10
+                                      ? const Color(0xFF1E293B)
+                                      : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(10)),
                               child: Icon(Icons.add,
                                   size: 18,
                                   color: _ticketQuantity < 10
@@ -1596,17 +2818,14 @@ class _TransportScreenState extends State<TransportScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 // Price breakdown
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0))),
                   child: Column(
                     children: [
                       Row(
@@ -1656,20 +2875,16 @@ class _TransportScreenState extends State<TransportScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _isBuying = false;
-                            _selectedTicket = null;
-                            _ticketQuantity = 1;
-                          });
-                        },
+                        onPressed: () => setState(() {
+                          _isBuying = false;
+                          _selectedTicket = null;
+                          _ticketQuantity = 1;
+                        }),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: const Color(0xFFF1F5F9),
@@ -1689,9 +2904,8 @@ class _TransportScreenState extends State<TransportScreen> {
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                  '¡$_ticketQuantity billete(s) comprado(s)! Disponibles en tu perfil.'),
-                            ),
+                                content: Text(
+                                    '¡$_ticketQuantity billete(s) comprado(s)! Disponibles en tu perfil.')),
                           );
                           setState(() {
                             _isBuying = false;
@@ -1705,9 +2919,9 @@ class _TransportScreenState extends State<TransportScreen> {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Icon(Icons.credit_card, size: 18),
                             SizedBox(width: 8),
                             Text('Pagar',
@@ -1728,152 +2942,7 @@ class _TransportScreenState extends State<TransportScreen> {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  ROUTES TAB (unchanged)
-  // ════════════════════════════════════════════════════════════════════════════
-
-  Widget _buildRoutesTab() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            border: Border.all(color: const Color(0xFFDBEAFE), width: 2),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Row(
-            children: const [
-              Icon(Icons.info_outline, color: Color(0xFF3B82F6)),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Introduce tu origen y destino para ver la mejor forma de llegar en transporte público.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1D4ED8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Stack(
-                children: [
-                  Positioned(
-                    left: 14,
-                    top: 24,
-                    bottom: 24,
-                    child: Container(width: 2, color: const Color(0xFFE2E8F0)),
-                  ),
-                  Column(
-                    children: [
-                      _buildLocationInput(
-                          'Mi ubicación actual', const Color(0xFF0EA5E9)),
-                      const SizedBox(height: 16),
-                      _buildLocationInput(
-                          '¿A dónde quieres ir?', const Color(0xFFEC4899)),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Calculando la mejor ruta...')),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Text('Buscar Ruta',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w900, fontSize: 16)),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLocationInput(String hint, Color dotColor) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: dotColor, width: 4),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(
-                  fontWeight: FontWeight.w700, color: Color(0xFF94A3B8)),
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide:
-                    const BorderSide(color: Color(0xFFE2E8F0), width: 2),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide:
-                    const BorderSide(color: Color(0xFFE2E8F0), width: 2),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: dotColor, width: 2),
-              ),
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  //  GUIDE TAB (unchanged)
+  //  GUIDE TAB
   // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildGuideTab() {
@@ -1888,18 +2957,68 @@ class _TransportScreenState extends State<TransportScreen> {
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF1E293B))),
         ),
-        _buildGuideStep1(),
+        _buildGuideStep(
+          step: '1',
+          bgColor: const Color(0xFFFEE2E2),
+          numColor: const Color(0xFFDC2626),
+          title: 'Comprar en las Máquinas',
+          body:
+              'Encontrarás máquinas rojas en todas las estaciones de metro. Puedes cambiar el idioma a inglés o francés en la pantalla inicial.',
+          checks: const [
+            'Aceptan tarjeta (contactless) y efectivo.',
+            'Los billetes turísticos (Hola BCN) son la mejor opción.',
+          ],
+        ),
         const SizedBox(height: 16),
-        _buildGuideStep2(),
+        _buildGuideStep(
+          step: '2',
+          bgColor: const Color(0xFFDBEAFE),
+          numColor: const Color(0xFF2563EB),
+          title: 'Los Tornos (Pasadores)',
+          body:
+              'Para entrar al metro o tren, debes validar tu billete. En el bus, la validadora está justo al subir.',
+        ),
         const SizedBox(height: 16),
-        _buildGuideStep3(),
+        _buildGuideStep(
+          step: '3',
+          bgColor: const Color(0xFFD1FAE5),
+          numColor: const Color(0xFF059669),
+          title: 'Transbordos Gratuitos',
+          richBody: const [
+            TextSpan(text: 'Con billetes como la T-Casual, tienes '),
+            TextSpan(
+                text: '1 hora y 15 minutos',
+                style: TextStyle(fontWeight: FontWeight.w900)),
+            TextSpan(
+                text:
+                    ' para cambiar de medio de transporte sin coste adicional.'),
+          ],
+          footer:
+              '⚠️ No puedes salir del metro y volver a entrar con el mismo viaje.',
+        ),
         const SizedBox(height: 16),
-        _buildGuideStep4(),
+        _buildGuideStep(
+          step: '4',
+          bgColor: const Color(0xFFE9D5FF),
+          numColor: const Color(0xFF9333EA),
+          title: 'Conoce tus opciones',
+          body:
+              'Use the Medios tab to explore all transport options in detail.',
+        ),
       ],
     );
   }
 
-  Widget _buildGuideStep1() {
+  Widget _buildGuideStep({
+    required String step,
+    required Color bgColor,
+    required Color numColor,
+    required String title,
+    String? body,
+    List<InlineSpan>? richBody,
+    List<String>? checks,
+    String? footer,
+  }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1908,225 +3027,89 @@ class _TransportScreenState extends State<TransportScreen> {
           border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withOpacity(0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 4))
           ]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Center(
-                  child: Text('1',
-                      style: TextStyle(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: bgColor, borderRadius: BorderRadius.circular(12)),
+                child: Center(
+                    child: Text(step,
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: numColor))),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(title,
+                      style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFFDC2626))))),
-          const SizedBox(width: 12),
-          const Expanded(
-              child: Text('Comprar en las Máquinas',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B)))),
-        ]),
-        const SizedBox(height: 12),
-        const Text(
-            'Encontrarás máquinas rojas en todas las estaciones de metro. Puedes cambiar el idioma a inglés o francés en la pantalla inicial.',
-            style: TextStyle(
-                color: Color(0xFF475569),
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                height: 1.5)),
-        const SizedBox(height: 16),
-        const Row(children: [
-          Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-          SizedBox(width: 8),
-          Expanded(
-              child: Text('Aceptan tarjeta (contactless) y efectivo.',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B))))
-        ]),
-        const SizedBox(height: 8),
-        const Row(children: [
-          Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-          SizedBox(width: 8),
-          Expanded(
-              child: Text(
-                  'Los billetes turísticos (Hola BCN) son la mejor opción.',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B))))
-        ]),
-      ]),
-    );
-  }
-
-  Widget _buildGuideStep2() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 4))
-          ]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFDBEAFE),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Center(
-                  child: Text('2',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF2563EB))))),
-          const SizedBox(width: 12),
-          const Expanded(
-              child: Text('Los Tornos (Pasadores)',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B)))),
-        ]),
-        const SizedBox(height: 12),
-        const Text(
-            'Para entrar al metro o tren, debes validar tu billete. En el bus, la validadora está justo al subir.',
-            style: TextStyle(
-                color: Color(0xFF475569),
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                height: 1.5)),
-      ]),
-    );
-  }
-
-  Widget _buildGuideStep3() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 4))
-          ]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFD1FAE5),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Center(
-                  child: Text('3',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF059669))))),
-          const SizedBox(width: 12),
-          const Expanded(
-              child: Text('Transbordos Gratuitos',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B)))),
-        ]),
-        const SizedBox(height: 12),
-        RichText(
-            text: const TextSpan(
-                style: TextStyle(
+                          color: Color(0xFF1E293B)))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (richBody != null)
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(
                     color: Color(0xFF475569),
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                     height: 1.5),
-                children: [
-              TextSpan(text: 'Con billetes como la T-Casual, tienes '),
-              TextSpan(
-                  text: '1 hora y 15 minutos',
-                  style: TextStyle(fontWeight: FontWeight.w900)),
-              TextSpan(
-                  text:
-                      ' para cambiar de medio de transporte sin coste adicional.'),
-            ])),
-        const SizedBox(height: 12),
-        const Text(
-            '⚠️ No puedes salir del metro y volver a entrar con el mismo viaje.',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF475569))),
-      ]),
-    );
-  }
-
-  Widget _buildGuideStep4() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 4))
-          ]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFE9D5FF),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Center(
-                  child: Text('4',
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF9333EA))))),
-          const SizedBox(width: 12),
-          const Expanded(
-              child: Text('Conoce tus opciones',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B)))),
-        ]),
-        const SizedBox(height: 12),
-        const Text(
-            'Use the Medios tab to explore all transport options in detail.',
-            style: TextStyle(
-                color: Color(0xFF475569),
-                fontWeight: FontWeight.w500,
-                fontSize: 14)),
-      ]),
+                children: richBody,
+              ),
+            )
+          else if (body != null)
+            Text(body,
+                style: const TextStyle(
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    height: 1.5)),
+          if (checks != null) ...[
+            const SizedBox(height: 16),
+            ...checks.map((c) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle,
+                          color: Color(0xFF10B981), size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(c,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B)))),
+                    ],
+                  ),
+                )),
+          ],
+          if (footer != null) ...[
+            const SizedBox(height: 12),
+            Text(footer,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF475569))),
+          ],
+        ],
+      ),
     );
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  INFO TAB (unchanged)
+  //  INFO TAB
   // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildInfoTab() {
@@ -2141,6 +3124,7 @@ class _TransportScreenState extends State<TransportScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Search field
         Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -2149,9 +3133,9 @@ class _TransportScreenState extends State<TransportScreen> {
             border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: Colors.black.withOpacity(0.03),
                   blurRadius: 8,
-                  offset: const Offset(0, 4)),
+                  offset: const Offset(0, 4))
             ],
           ),
           child: TextField(
@@ -2166,8 +3150,7 @@ class _TransportScreenState extends State<TransportScreen> {
                   ? GestureDetector(
                       onTap: () => setState(() => _infoSearchQuery = ''),
                       child: const Icon(Icons.close,
-                          color: Color(0xFF94A3B8), size: 18),
-                    )
+                          color: Color(0xFF94A3B8), size: 18))
                   : null,
               border: InputBorder.none,
               contentPadding:
@@ -2175,6 +3158,7 @@ class _TransportScreenState extends State<TransportScreen> {
             ),
           ),
         ),
+        // Popular destinations carousel
         if (query.isEmpty) ...[
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 12),
@@ -2259,9 +3243,9 @@ class _TransportScreenState extends State<TransportScreen> {
         border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 10,
-              offset: const Offset(0, 4)),
+              offset: const Offset(0, 4))
         ],
       ),
       child: Column(
@@ -2272,9 +3256,8 @@ class _TransportScreenState extends State<TransportScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10)),
               child: Center(
                   child: Text(dest['emoji'],
                       style: const TextStyle(fontSize: 18))),
@@ -2283,7 +3266,7 @@ class _TransportScreenState extends State<TransportScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20)),
               child: Text(dest['transport'],
                   style: TextStyle(
@@ -2304,14 +3287,13 @@ class _TransportScreenState extends State<TransportScreen> {
                 size: 11, color: Color(0xFF94A3B8)),
             const SizedBox(width: 3),
             Expanded(
-              child: Text(dest['stop'],
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B))),
-            ),
+                child: Text(dest['stop'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B)))),
           ]),
           const SizedBox(height: 2),
           Row(children: [
@@ -2319,14 +3301,13 @@ class _TransportScreenState extends State<TransportScreen> {
                 size: 11, color: Color(0xFF94A3B8)),
             const SizedBox(width: 3),
             Expanded(
-              child: Text(dest['time'],
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF94A3B8))),
-            ),
+                child: Text(dest['time'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8)))),
           ]),
           const SizedBox(height: 8),
           Container(
@@ -2351,8 +3332,7 @@ class _TransportScreenState extends State<TransportScreen> {
 
   Widget _buildExpandableCard(TransportOption opt) {
     final isExpanded = _expandedInfo == opt.id;
-
-    final Map<String, Map<String, dynamic>> _extraDetails = {
+    const extraDetails = {
       'metro': {
         'lines': [
           'L1',
@@ -2367,16 +3347,16 @@ class _TransportScreenState extends State<TransportScreen> {
           'L11'
         ],
         'lineColors': [
-          const Color(0xFFE3000B),
-          const Color(0xFF7B1FA2),
-          const Color(0xFF007F41),
-          const Color(0xFFFFD700),
-          const Color(0xFF003F8A),
-          const Color(0xFFE87722),
-          const Color(0xFFE87722),
-          const Color(0xFF009FE3),
-          const Color(0xFF009FE3),
-          const Color(0xFF009FE3),
+          Color(0xFFE3000B),
+          Color(0xFF7B1FA2),
+          Color(0xFF007F41),
+          Color(0xFFFFD700),
+          Color(0xFF003F8A),
+          Color(0xFFE87722),
+          Color(0xFFE87722),
+          Color(0xFF009FE3),
+          Color(0xFF009FE3),
+          Color(0xFF009FE3),
         ],
         'hours':
             'Mon–Thu & Sun: 5am–12am\nFri: 5am–2am\nSat & eves of holidays: 24h',
@@ -2386,14 +3366,14 @@ class _TransportScreenState extends State<TransportScreen> {
       'bus': {
         'lines': ['H6', 'H10', 'H16', 'V7', 'V13', 'V17', '24', 'N4'],
         'lineColors': [
-          const Color(0xFF10B981),
-          const Color(0xFF10B981),
-          const Color(0xFF10B981),
-          const Color(0xFF0EA5E9),
-          const Color(0xFF0EA5E9),
-          const Color(0xFF0EA5E9),
-          const Color(0xFF6366F1),
-          const Color(0xFF1E293B),
+          Color(0xFF10B981),
+          Color(0xFF10B981),
+          Color(0xFF10B981),
+          Color(0xFF0EA5E9),
+          Color(0xFF0EA5E9),
+          Color(0xFF0EA5E9),
+          Color(0xFF6366F1),
+          Color(0xFF1E293B),
         ],
         'hours': 'Most lines: 5am–11pm\nNit Bus (N lines): 10:30pm–5am',
         'frequency': 'Every 6–12 min on main routes',
@@ -2402,14 +3382,14 @@ class _TransportScreenState extends State<TransportScreen> {
       'fgc': {
         'lines': ['S1', 'S2', 'S5', 'S55', 'L6', 'L7', 'R5', 'R6'],
         'lineColors': [
-          const Color(0xFF8B5CF6),
-          const Color(0xFF8B5CF6),
-          const Color(0xFF8B5CF6),
-          const Color(0xFF8B5CF6),
-          const Color(0xFF8B5CF6),
-          const Color(0xFF8B5CF6),
-          const Color(0xFFEC4899),
-          const Color(0xFFEC4899),
+          Color(0xFF8B5CF6),
+          Color(0xFF8B5CF6),
+          Color(0xFF8B5CF6),
+          Color(0xFF8B5CF6),
+          Color(0xFF8B5CF6),
+          Color(0xFF8B5CF6),
+          Color(0xFFEC4899),
+          Color(0xFFEC4899),
         ],
         'hours': 'Mon–Thu: 5am–12am\nFri–Sat: 5am–2am\nSun: 6am–12am',
         'frequency': 'Every 6–15 min depending on line',
@@ -2418,14 +3398,14 @@ class _TransportScreenState extends State<TransportScreen> {
       'rodalies': {
         'lines': ['R1', 'R2', 'R3', 'R4', 'R7', 'R10', 'R11', 'R12'],
         'lineColors': [
-          const Color(0xFFE3000B),
-          const Color(0xFF007F41),
-          const Color(0xFFFFD700),
-          const Color(0xFF003F8A),
-          const Color(0xFF6366F1),
-          const Color(0xFF0EA5E9),
-          const Color(0xFFEC4899),
-          const Color(0xFF10B981),
+          Color(0xFFE3000B),
+          Color(0xFF007F41),
+          Color(0xFFFFD700),
+          Color(0xFF003F8A),
+          Color(0xFF6366F1),
+          Color(0xFF0EA5E9),
+          Color(0xFFEC4899),
+          Color(0xFF10B981),
         ],
         'hours': 'Approx. 5am–11:30pm (varies by line)',
         'frequency': 'Every 15–30 min',
@@ -2433,7 +3413,7 @@ class _TransportScreenState extends State<TransportScreen> {
       },
     };
 
-    final extra = _extraDetails[opt.id];
+    final extra = extraDetails[opt.id];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2527,90 +3507,41 @@ class _TransportScreenState extends State<TransportScreen> {
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: List.generate(
-                      (extra['lines'] as List).length,
-                      (i) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                                color: (extra['lineColors'] as List<Color>)[i]
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                    color:
-                                        (extra['lineColors'] as List<Color>)[i]
-                                            .withValues(alpha: 0.4))),
-                            child: Text(extra['lines'][i],
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    color: (extra['lineColors']
-                                        as List<Color>)[i])),
-                          )),
+                  children:
+                      List.generate((extra['lines']! as List).length, (i) {
+                    final c = (extra['lineColors']! as List<Color>)[i];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                          color: c.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: c.withOpacity(0.4))),
+                      child: Text((extra['lines']! as List)[i],
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: c)),
+                    );
+                  }),
                 ),
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0))),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(children: [
-                              Icon(Icons.access_time,
-                                  size: 14, color: Color(0xFF6366F1)),
-                              SizedBox(width: 4),
-                              Text('Horario',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF6366F1))),
-                            ]),
-                            const SizedBox(height: 6),
-                            Text(extra['hours'],
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF475569),
-                                    height: 1.5)),
-                          ]),
-                    ),
-                  ),
+                      child: _buildInfoBox(
+                    icon: Icons.access_time,
+                    color: const Color(0xFF6366F1),
+                    label: 'Horario',
+                    value: extra['hours'] as String,
+                  )),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0))),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(children: [
-                              Icon(Icons.speed,
-                                  size: 14, color: Color(0xFF10B981)),
-                              SizedBox(width: 4),
-                              Text('Frecuencia',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF10B981))),
-                            ]),
-                            const SizedBox(height: 6),
-                            Text(extra['frequency'],
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF475569),
-                                    height: 1.5)),
-                          ]),
-                    ),
-                  ),
+                      child: _buildInfoBox(
+                    icon: Icons.speed,
+                    color: const Color(0xFF10B981),
+                    label: 'Frecuencia',
+                    value: extra['frequency'] as String,
+                  )),
                 ]),
                 const SizedBox(height: 8),
                 Container(
@@ -2626,12 +3557,11 @@ class _TransportScreenState extends State<TransportScreen> {
                         size: 14, color: Color(0xFF3B82F6)),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(extra['zones'],
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1D4ED8))),
-                    ),
+                        child: Text(extra['zones'] as String,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1D4ED8)))),
                   ]),
                 ),
                 const SizedBox(height: 12),
@@ -2651,6 +3581,37 @@ class _TransportScreenState extends State<TransportScreen> {
                           height: 1.5))),
             ]),
           ),
+      ]),
+    );
+  }
+
+  Widget _buildInfoBox({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w900, color: color)),
+        ]),
+        const SizedBox(height: 6),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF475569),
+                height: 1.5)),
       ]),
     );
   }
