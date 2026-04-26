@@ -1190,14 +1190,12 @@ class _StatCard extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            if (onTap != null) ..[
-              const SizedBox(height: 4),
-              const Icon(
-                Icons.info_outline,
-                size: 14,
-                color: Color(0xFF94A3B8),
-              ),
-            ],
+            if (onTap != null) const SizedBox(height: 4),
+            if (onTap != null) const Icon(
+              Icons.info_outline,
+              size: 14,
+              color: Color(0xFF94A3B8),
+            ),
           ],
         ),
       ),
@@ -1392,3 +1390,5 @@ class _FAQItem extends StatelessWidget {
     );
   }
 }
+
+
