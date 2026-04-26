@@ -17,6 +17,11 @@ class _TransportScreenState extends State<TransportScreen> {
   int _ticketQuantity = 1;
   String _infoSearchQuery = '';
 
+  // Ticket section state
+  String _ticketCategory = 'tourist'; // 'tourist' | 'standard' | 'special'
+  bool _showComparison = false;
+  Set<String> _comparisonIds = {};
+
   // Popular destinations data
   final List<Map<String, dynamic>> _popularDestinations = [
     {
@@ -93,34 +98,273 @@ class _TransportScreenState extends State<TransportScreen> {
     },
   ];
 
+  // ── All ticket data ──────────────────────────────────────────────────────
   final List<Map<String, dynamic>> _touristTickets = [
-    {
-      'id': 't-casual',
-      'name': 'T-Casual (10 viajes)',
-      'price': '12.15€',
-      'desc': 'Ideal para estancias cortas. Unipersonal.',
-      'color': const Color(0xFF10B981),
-      'lightColor': const Color(0xFFD1FAE5),
-    },
     {
       'id': 'hola-bcn-48',
       'name': 'Hola Barcelona 48h',
       'price': '17.50€',
-      'desc': 'Viajes ilimitados por 2 días. Incluye aeropuerto.',
+      'priceValue': 17.50,
+      'desc': 'Unlimited travel for 2 days including airport.',
+      'badge': '⭐ Most Popular',
+      'badgeColor': const Color(0xFFFEF3C7),
+      'badgeFg': const Color(0xFF92400E),
       'color': const Color(0xFF0EA5E9),
       'lightColor': const Color(0xFFE0F2FE),
+      'icon': '🏙️',
+      'features': [
+        'Metro, Bus, FGC, Tram',
+        'Airport T1 & T2 included',
+        'Starts on first validation',
+        'No zones restriction'
+      ],
+      'ideal': 'Weekend trip (2 days)',
+      'savingsVsSingle': '~30% vs single tickets',
     },
     {
       'id': 'hola-bcn-72',
       'name': 'Hola Barcelona 72h',
       'price': '25.50€',
-      'desc': 'Viajes ilimitados por 3 días. Incluye aeropuerto.',
+      'priceValue': 25.50,
+      'desc': 'Unlimited travel for 3 days including airport.',
+      'badge': '🔥 Best Value',
+      'badgeColor': const Color(0xFFFFEDD5),
+      'badgeFg': const Color(0xFF9A3412),
       'color': const Color(0xFF6366F1),
       'lightColor': const Color(0xFFE0E7FF),
+      'icon': '🗺️',
+      'features': [
+        'Metro, Bus, FGC, Tram',
+        'Airport T1 & T2 included',
+        'Valid 72h from first use',
+        'Great for city explorers'
+      ],
+      'ideal': '3-day city break',
+      'savingsVsSingle': '~40% vs single tickets',
+    },
+    {
+      'id': 'hola-bcn-96',
+      'name': 'Hola Barcelona 96h',
+      'price': '33.30€',
+      'priceValue': 33.30,
+      'desc': 'Unlimited travel for 4 days including airport.',
+      'badge': null,
+      'color': const Color(0xFF8B5CF6),
+      'lightColor': const Color(0xFFF3E8FF),
+      'icon': '📅',
+      'features': [
+        'Metro, Bus, FGC, Tram',
+        'Airport T1 & T2 included',
+        'Valid 96h from first use',
+        'Perfect for longer stays'
+      ],
+      'ideal': '4-day stay',
+      'savingsVsSingle': '~45% vs single tickets',
+    },
+    {
+      'id': 'hola-bcn-120',
+      'name': 'Hola Barcelona 120h',
+      'price': '40.80€',
+      'priceValue': 40.80,
+      'desc': 'Unlimited travel for 5 days including airport.',
+      'badge': null,
+      'color': const Color(0xFFEC4899),
+      'lightColor': const Color(0xFFFCE7F3),
+      'icon': '🎉',
+      'features': [
+        'Metro, Bus, FGC, Tram',
+        'Airport T1 & T2 included',
+        'Valid 120h from first use',
+        'Best for 5-day holidays'
+      ],
+      'ideal': 'Full week trip',
+      'savingsVsSingle': '~50% vs single tickets',
     },
   ];
 
-  // ✅ NEW: Parse price string and multiply by quantity
+  final List<Map<String, dynamic>> _standardTickets = [
+    {
+      'id': 't-casual',
+      'name': 'T-Casual (10 trips)',
+      'price': '12.15€',
+      'priceValue': 12.15,
+      'desc': 'Multi-use card for 10 one-way trips. Personal use only.',
+      'badge': '🏠 Local Favourite',
+      'badgeColor': const Color(0xFFD1FAE5),
+      'badgeFg': const Color(0xFF065F46),
+      'color': const Color(0xFF10B981),
+      'lightColor': const Color(0xFFD1FAE5),
+      'icon': '🎟️',
+      'features': [
+        '10 trips, Zone 1',
+        '75-min transfer included',
+        'Personal use (non-transferable)',
+        'Valid on metro, bus, tram, FGC'
+      ],
+      'ideal': 'Short stays or locals',
+      'savingsVsSingle': '52% cheaper than 10 singles',
+    },
+    {
+      'id': 'single',
+      'name': 'Billete Sencillo',
+      'price': '2.55€',
+      'priceValue': 2.55,
+      'desc': 'Single one-way trip on metro, bus, or tram.',
+      'badge': null,
+      'color': const Color(0xFF64748B),
+      'lightColor': const Color(0xFFF1F5F9),
+      'icon': '🎫',
+      'features': [
+        'One trip, one zone',
+        'No transfers included',
+        'Valid for any line',
+        'Great for one-off journeys'
+      ],
+      'ideal': 'Just one journey',
+      'savingsVsSingle': 'No discount — pay-per-use',
+    },
+    {
+      'id': 't-usual',
+      'name': 'T-Usual (Monthly)',
+      'price': '42.50€',
+      'priceValue': 42.50,
+      'desc': 'Unlimited monthly travel on all public transport.',
+      'badge': '📆 Monthly Pass',
+      'badgeColor': const Color(0xFFE0E7FF),
+      'badgeFg': const Color(0xFF3730A3),
+      'color': const Color(0xFF6366F1),
+      'lightColor': const Color(0xFFE0E7FF),
+      'icon': '🗓️',
+      'features': [
+        'Unlimited trips all month',
+        'All zones within Barcelona',
+        'Valid from 1st of month',
+        'Metro, bus, FGC, tram, Rodalies'
+      ],
+      'ideal': 'Staying 1+ months',
+      'savingsVsSingle': 'Unlimited for ~14 T-Casuals',
+    },
+    {
+      'id': 't-dia',
+      'name': 'T-Dia (Day Pass)',
+      'price': '11.00€',
+      'priceValue': 11.00,
+      'desc': 'Unlimited travel in Zone 1 for one full calendar day.',
+      'badge': null,
+      'color': const Color(0xFFF59E0B),
+      'lightColor': const Color(0xFFFEF3C7),
+      'icon': '☀️',
+      'features': [
+        'Unlimited trips, 1 day',
+        'Midnight to midnight',
+        'Zone 1 only',
+        'Good if you plan many trips'
+      ],
+      'ideal': '1-day intensive exploring',
+      'savingsVsSingle': 'Worth it after 5 trips',
+    },
+  ];
+
+  final List<Map<String, dynamic>> _specialTickets = [
+    {
+      'id': 'aerobus',
+      'name': 'Aerobus Pass',
+      'price': '6.75€',
+      'priceValue': 6.75,
+      'desc': 'Direct express bus between Airport T1/T2 and Plaça Catalunya.',
+      'badge': '✈️ Airport Express',
+      'badgeColor': const Color(0xFFE0F2FE),
+      'badgeFg': const Color(0xFF075985),
+      'color': const Color(0xFF0EA5E9),
+      'lightColor': const Color(0xFFE0F2FE),
+      'icon': '✈️',
+      'features': [
+        'Airport T1 & T2 direct',
+        'Runs 24 hours',
+        '~35 min to city centre',
+        'Return ticket: 11.60€'
+      ],
+      'ideal': 'Fast airport transfer',
+      'savingsVsSingle': 'Faster than Metro L9',
+    },
+    {
+      'id': 'bus-turistic',
+      'name': 'Bus Turístic',
+      'price': '30.00€',
+      'priceValue': 30.00,
+      'desc': 'Hop-on/hop-off tourist bus covering all main attractions.',
+      'badge': '🚌 Sightseeing',
+      'badgeColor': const Color(0xFFFFEDD5),
+      'badgeFg': const Color(0xFF9A3412),
+      'color': const Color(0xFFEF4444),
+      'lightColor': const Color(0xFFFEE2E2),
+      'icon': '🚌',
+      'features': [
+        '3 routes: Red, Blue, Green',
+        'Hop-on/hop-off',
+        'Live audio guide',
+        'Discounts at attractions'
+      ],
+      'ideal': 'First-time visitors',
+      'savingsVsSingle': 'Includes attraction discounts',
+    },
+    {
+      'id': 'funicular',
+      'name': 'Funicular Montjuïc',
+      'price': 'Included',
+      'priceValue': 0,
+      'desc': 'Funicular railway from Paral·lel metro to Montjuïc hill.',
+      'badge': '🆓 Free with metro',
+      'badgeColor': const Color(0xFFD1FAE5),
+      'badgeFg': const Color(0xFF065F46),
+      'color': const Color(0xFF10B981),
+      'lightColor': const Color(0xFFD1FAE5),
+      'icon': '🏰',
+      'features': [
+        'Free with any valid ticket',
+        'From Paral·lel (L2/L3)',
+        'Runs until midnight',
+        'Access to castle & gardens'
+      ],
+      'ideal': 'Montjuïc day trip',
+      'savingsVsSingle': 'No extra cost needed',
+    },
+    {
+      'id': 'cable-car',
+      'name': 'Cable Car (Aeri)',
+      'price': '13.50€',
+      'priceValue': 13.50,
+      'desc': 'Panoramic cable car from Barceloneta beach to Montjuïc.',
+      'badge': '🌊 Scenic Route',
+      'badgeColor': const Color(0xFFE0F2FE),
+      'badgeFg': const Color(0xFF075985),
+      'color': const Color(0xFF0284C7),
+      'lightColor': const Color(0xFFE0F2FE),
+      'icon': '🚡',
+      'features': [
+        'Beach to hilltop views',
+        'Panoramic gondola cabin',
+        'Return ticket: 21.00€',
+        'Seasonal — check schedules'
+      ],
+      'ideal': 'Scenic experience',
+      'savingsVsSingle': 'Unique bird\'s-eye view',
+    },
+  ];
+
+  List<Map<String, dynamic>> get _currentTickets {
+    switch (_ticketCategory) {
+      case 'tourist':
+        return _touristTickets;
+      case 'standard':
+        return _standardTickets;
+      case 'special':
+        return _specialTickets;
+      default:
+        return _touristTickets;
+    }
+  }
+
   String _calculateTotal() {
     if (_selectedTicket == null) return '0.00€';
     final raw =
@@ -130,14 +374,23 @@ class _TransportScreenState extends State<TransportScreen> {
     return '${total.toStringAsFixed(2)}€';
   }
 
-  // ✅ Safe tab switcher that resets all transient state
   void _onTabChanged(String newTab) {
     setState(() {
       _activeTab = newTab;
       _isBuying = false;
       _selectedTicket = null;
       _expandedInfo = null;
-      _ticketQuantity = 1; // ✅ reset quantity
+      _ticketQuantity = 1;
+    });
+  }
+
+  void _toggleComparison(String id) {
+    setState(() {
+      if (_comparisonIds.contains(id)) {
+        _comparisonIds.remove(id);
+      } else if (_comparisonIds.length < 3) {
+        _comparisonIds.add(id);
+      }
     });
   }
 
@@ -145,6 +398,9 @@ class _TransportScreenState extends State<TransportScreen> {
   Widget build(BuildContext context) {
     if (_isBuying && _selectedTicket != null) {
       return _buildPurchaseScreen();
+    }
+    if (_showComparison && _comparisonIds.isNotEmpty) {
+      return _buildComparisonScreen();
     }
 
     return Column(
@@ -221,6 +477,1259 @@ class _TransportScreenState extends State<TransportScreen> {
       ),
     );
   }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  TICKETS TAB — EXPANDED
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTicketsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Smart recommender banner ────────────────────────────────────────
+        _buildRecommenderBanner(),
+        const SizedBox(height: 20),
+
+        // ── Category picker ─────────────────────────────────────────────────
+        _buildCategoryPicker(),
+        const SizedBox(height: 20),
+
+        // ── Comparison bar (shown when items selected) ──────────────────────
+        if (_comparisonIds.isNotEmpty) ...[
+          _buildComparisonBar(),
+          const SizedBox(height: 12),
+        ],
+
+        // ── Section header ──────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 16),
+          child: Row(
+            children: [
+              Text(
+                _ticketCategory == 'tourist'
+                    ? 'Tourist Passes'
+                    : _ticketCategory == 'standard'
+                        ? 'Standard Tickets'
+                        : 'Special & Extras',
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B)),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() => _comparisonIds.clear()),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Text('Compare',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF64748B))),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Ticket cards ────────────────────────────────────────────────────
+        ..._currentTickets.map((ticket) => _buildExpandedTicketCard(ticket)),
+
+        // ── Price guide section ─────────────────────────────────────────────
+        const SizedBox(height: 24),
+        _buildPriceGuide(),
+
+        // ── Where to buy ────────────────────────────────────────────────────
+        const SizedBox(height: 20),
+        _buildWhereToBuy(),
+
+        // ── FAQ ─────────────────────────────────────────────────────────────
+        const SizedBox(height: 20),
+        _buildFAQ(),
+      ],
+    );
+  }
+
+  Widget _buildRecommenderBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF334155)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('🤔', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 8),
+              Text('Not sure which ticket?',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: Colors.white)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Quick rule of thumb:',
+            style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: Color(0xFF94A3B8)),
+          ),
+          const SizedBox(height: 8),
+          _buildRuleRow('✈️', 'Arriving/leaving by airport?',
+              'Hola BCN pass (includes L9)'),
+          _buildRuleRow('📅', 'Staying 2–5 days?', 'Hola Barcelona 48h–120h'),
+          _buildRuleRow('🏠', 'Living here short-term?', 'T-Casual (10 trips)'),
+          _buildRuleRow('⚡', 'Just one journey?', 'Billete Sencillo'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRuleRow(String emoji, String question, String answer) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 13)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 12, height: 1.4),
+                children: [
+                  TextSpan(
+                    text: '$question ',
+                    style: const TextStyle(
+                        color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                  ),
+                  TextSpan(
+                    text: '→ $answer',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryPicker() {
+    final categories = [
+      {'id': 'tourist', 'label': '🏙️ Tourist', 'sub': 'Passes'},
+      {'id': 'standard', 'label': '🎟️ Standard', 'sub': 'Tickets'},
+      {'id': 'special', 'label': '✨ Special', 'sub': 'Extras'},
+    ];
+
+    return Row(
+      children: categories.map((cat) {
+        final isActive = _ticketCategory == cat['id'];
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() {
+              _ticketCategory = cat['id']!;
+              _comparisonIds.clear();
+            }),
+            child: Container(
+              margin: EdgeInsets.only(right: cat['id'] == 'special' ? 0 : 8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: isActive
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFE2E8F0),
+                    width: 2),
+              ),
+              child: Column(
+                children: [
+                  Text(cat['label']!,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          color: isActive
+                              ? Colors.white
+                              : const Color(0xFF1E293B))),
+                  Text(cat['sub']!,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          color: isActive
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B))),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildComparisonBar() {
+    final allTickets = [
+      ..._touristTickets,
+      ..._standardTickets,
+      ..._specialTickets
+    ];
+    final selected =
+        allTickets.where((t) => _comparisonIds.contains(t['id'])).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBFDBFE), width: 2),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Comparing:',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E40AF))),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: selected
+                      .map((t) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                                color: (t['color'] as Color)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8)),
+                            child: Text(t['name'],
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: t['color'] as Color)),
+                          ))
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+          if (_comparisonIds.length >= 2)
+            GestureDetector(
+              onTap: () => setState(() => _showComparison = true),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12)),
+                child: const Text('Compare →',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedTicketCard(Map<String, dynamic> ticket) {
+    final inComparison = _comparisonIds.contains(ticket['id']);
+    final features = ticket['features'] as List<String>;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+            color: inComparison
+                ? (ticket['color'] as Color)
+                : const Color(0xFFF1F5F9),
+            width: inComparison ? 2.5 : 2),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: ticket['color'],
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                          color: (ticket['color'] as Color)
+                              .withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3))
+                    ],
+                  ),
+                  child: Center(
+                      child: Text(ticket['icon'] ?? '🎟️',
+                          style: const TextStyle(fontSize: 24))),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (ticket['badge'] != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: ticket['badgeColor'] ??
+                                  const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6)),
+                          child: Text(ticket['badge'],
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  color: ticket['badgeFg'] ??
+                                      const Color(0xFF64748B))),
+                        ),
+                      Text(ticket['name'],
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              color: Color(0xFF1E293B))),
+                      const SizedBox(height: 2),
+                      Text(ticket['ideal'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF94A3B8))),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(ticket['price'],
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E293B))),
+                    const Text('per person',
+                        style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF94A3B8))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Features list ─────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: features
+                  .map((f) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                            color: (ticket['lightColor'] as Color?) ??
+                                const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle,
+                                size: 11, color: ticket['color'] as Color),
+                            const SizedBox(width: 4),
+                            Text(f,
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: ticket['color'] as Color)),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+
+          // ── Savings banner ────────────────────────────────────────────────
+          if (ticket['savingsVsSingle'] != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBBF7D0))),
+                child: Row(
+                  children: [
+                    const Icon(Icons.savings_outlined,
+                        size: 14, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 6),
+                    Text(ticket['savingsVsSingle'],
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF15803D))),
+                  ],
+                ),
+              ),
+            ),
+
+          // ── Action row ────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Compare toggle
+                GestureDetector(
+                  onTap: () => _toggleComparison(ticket['id']),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                        color: inComparison
+                            ? (ticket['color'] as Color).withValues(alpha: 0.12)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: inComparison
+                            ? Border.all(
+                                color: ticket['color'] as Color, width: 1.5)
+                            : null),
+                    child: Row(
+                      children: [
+                        Icon(
+                            inComparison
+                                ? Icons.check_box
+                                : Icons.check_box_outline_blank,
+                            size: 16,
+                            color: inComparison
+                                ? ticket['color'] as Color
+                                : const Color(0xFF64748B)),
+                        const SizedBox(width: 4),
+                        Text('Compare',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color: inComparison
+                                    ? ticket['color'] as Color
+                                    : const Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Buy button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: (ticket['priceValue'] as double) == 0
+                        ? null
+                        : () => setState(() {
+                              _selectedTicket = ticket;
+                              _isBuying = true;
+                            }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                          color: (ticket['priceValue'] as double) == 0
+                              ? const Color(0xFFF1F5F9)
+                              : ticket['color'],
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: (ticket['priceValue'] as double) == 0
+                              ? null
+                              : [
+                                  BoxShadow(
+                                      color: (ticket['color'] as Color)
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3))
+                                ]),
+                      child: Center(
+                        child: Text(
+                            (ticket['priceValue'] as double) == 0
+                                ? 'Free with metro ticket'
+                                : 'Buy Now — ${ticket['price']}',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: (ticket['priceValue'] as double) == 0
+                                    ? const Color(0xFF64748B)
+                                    : Colors.white)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Price Guide ──────────────────────────────────────────────────────────
+  Widget _buildPriceGuide() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 4))
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('💶', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 8),
+              Text('Price at a Glance',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildPriceRow('Single trip', '2.55€', const Color(0xFF64748B)),
+          _buildPriceRow(
+              'T-Casual (10 trips)', '1.22€/trip', const Color(0xFF10B981)),
+          _buildPriceRow('T-Dia (day pass)', '11.00€', const Color(0xFFF59E0B)),
+          _buildPriceRow('Hola BCN 48h', '17.50€', const Color(0xFF0EA5E9)),
+          _buildPriceRow('Hola BCN 72h', '25.50€', const Color(0xFF6366F1)),
+          _buildPriceRow('Hola BCN 96h', '33.30€', const Color(0xFF8B5CF6)),
+          _buildPriceRow('Hola BCN 120h', '40.80€', const Color(0xFFEC4899)),
+          _buildPriceRow(
+              'T-Usual (monthly)', '42.50€', const Color(0xFF6366F1)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: const Text(
+                '💡 Children under 4 travel free. Reduced fare available for ages 4–12 and seniors 65+.',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569))),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceRow(String name, String price, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(name,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569)))),
+          Text(price,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E293B))),
+        ],
+      ),
+    );
+  }
+
+  // ── Where to Buy ─────────────────────────────────────────────────────────
+  Widget _buildWhereToBuy() {
+    final places = [
+      {
+        'icon': '🏧',
+        'name': 'Station Machines',
+        'desc': 'Red machines at every metro entrance. Accept card & cash.',
+        'color': const Color(0xFFEF4444),
+      },
+      {
+        'icon': '📱',
+        'name': 'TMB App',
+        'desc': 'Buy and store digital tickets. Works offline on metro.',
+        'color': const Color(0xFF0EA5E9),
+      },
+      {
+        'icon': '🖥️',
+        'name': 'TMB Website',
+        'desc': 'tmb.cat — order in advance and collect at machines.',
+        'color': const Color(0xFF6366F1),
+      },
+      {
+        'icon': '🏪',
+        'name': 'Tobacco Shops',
+        'desc': 'Estancs / quioscos often sell T-Casual and single tickets.',
+        'color': const Color(0xFF10B981),
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 4))
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('🛍️', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 8),
+              Text('Where to Buy',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...places.map((p) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                          color: (p['color'] as Color).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Center(
+                          child: Text(p['icon'] as String,
+                              style: const TextStyle(fontSize: 20))),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(p['name'] as String,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  color: Color(0xFF1E293B))),
+                          const SizedBox(height: 2),
+                          Text(p['desc'] as String,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF64748B),
+                                  height: 1.3)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  // ── FAQ ───────────────────────────────────────────────────────────────────
+  Widget _buildFAQ() {
+    final faqs = [
+      {
+        'q': 'Can I share a T-Casual between two people?',
+        'a':
+            'No — the T-Casual is personal and non-transferable. The Hola BCN passes are also personal.',
+      },
+      {
+        'q': 'Does Hola Barcelona cover the airport?',
+        'a':
+            'Yes! All Hola Barcelona passes include the Metro L9 Sud to airport T1 and T2 — no extra charge.',
+      },
+      {
+        'q': 'Is the Aerobus included in the Hola BCN pass?',
+        'a':
+            'No. The Aerobus is a private service and requires a separate ticket, even with a Hola BCN pass.',
+      },
+      {
+        'q': 'Can I use contactless payment on the metro gates?',
+        'a':
+            'Yes — you can tap your bank card or phone directly at the gate for a single trip at 2.55€.',
+      },
+      {
+        'q': 'What happens if my T-Casual runs out mid-journey?',
+        'a':
+            'You\'ll need to buy a new ticket. The gate won\'t let you through with 0 trips remaining.',
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 4))
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text('❓', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 8),
+              Text('FAQ',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...faqs.map((faq) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(faq['q']!,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            color: Color(0xFF1E293B))),
+                    const SizedBox(height: 6),
+                    Text(faq['a']!,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                            height: 1.5)),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  // ── Side-by-side Comparison Screen ──────────────────────────────────────
+  Widget _buildComparisonScreen() {
+    final allTickets = [
+      ..._touristTickets,
+      ..._standardTickets,
+      ..._specialTickets
+    ];
+    final selected =
+        allTickets.where((t) => _comparisonIds.contains(t['id'])).toList();
+    final fields = ['Price', 'Ideal for', 'Savings'];
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _showComparison = false),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.arrow_back,
+                      size: 18, color: Color(0xFF1E293B)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Comparison',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B))),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header row
+                  Row(
+                    children: [
+                      const SizedBox(width: 80),
+                      ...selected.map((t) => Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                  color: t['color'],
+                                  borderRadius: BorderRadius.circular(16)),
+                              child: Column(
+                                children: [
+                                  Text(t['icon'] ?? '🎟️',
+                                      style: const TextStyle(fontSize: 22)),
+                                  const SizedBox(height: 4),
+                                  Text(t['name'],
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                          )),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Data rows
+                  _buildComparisonRow('Price',
+                      selected.map((t) => t['price'] as String).toList()),
+                  _buildComparisonRow(
+                      'Best for',
+                      selected
+                          .map((t) => (t['ideal'] ?? '—') as String)
+                          .toList()),
+                  _buildComparisonRow(
+                      'Savings',
+                      selected
+                          .map((t) => (t['savingsVsSingle'] ?? '—') as String)
+                          .toList()),
+                  const SizedBox(height: 12),
+                  // Features comparison
+                  ...List.generate(4, (fi) {
+                    return _buildComparisonRow(
+                      'Feature ${fi + 1}',
+                      selected.map((t) {
+                        final feats = t['features'] as List<String>;
+                        return fi < feats.length ? feats[fi] : '—';
+                      }).toList(),
+                    );
+                  }),
+                  const SizedBox(height: 20),
+                  // Buy buttons
+                  Row(
+                    children: [
+                      const SizedBox(width: 88),
+                      ...selected.map((t) => Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: GestureDetector(
+                                onTap: (t['priceValue'] as double) == 0
+                                    ? null
+                                    : () => setState(() {
+                                          _selectedTicket = t;
+                                          _isBuying = true;
+                                          _showComparison = false;
+                                        }),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                      color: t['color'],
+                                      borderRadius: BorderRadius.circular(12)),
+                                  child: const Center(
+                                    child: Text('Buy',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComparisonRow(String label, List<String> values) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF94A3B8))),
+          ),
+          ...values.map((v) => Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Text(v,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B))),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  PURCHASE SCREEN
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPurchaseScreen() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: _selectedTicket!['color'],
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_selectedTicket!['color'] as Color)
+                            .withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      _selectedTicket!['icon'] ?? '🎟️',
+                      style: const TextStyle(fontSize: 30),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _selectedTicket!['name'],
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _selectedTicket!['desc'],
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748B),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+
+                // Quantity selector
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Cantidad',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF64748B))),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              if (_ticketQuantity > 1)
+                                setState(() => _ticketQuantity--);
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: _ticketQuantity > 1
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(Icons.remove,
+                                  size: 18,
+                                  color: _ticketQuantity > 1
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8)),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 48,
+                            child: Text('$_ticketQuantity',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF1E293B))),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              if (_ticketQuantity < 10)
+                                setState(() => _ticketQuantity++);
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: _ticketQuantity < 10
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(Icons.add,
+                                  size: 18,
+                                  color: _ticketQuantity < 10
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Price breakdown
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Precio unitario',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B))),
+                          Text(_selectedTicket!['price'],
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1E293B))),
+                        ],
+                      ),
+                      if (_ticketQuantity > 1) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('x$_ticketQuantity billetes',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF64748B))),
+                            const Icon(Icons.calculate_outlined,
+                                size: 16, color: Color(0xFF94A3B8)),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total a pagar',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B))),
+                          Text(_calculateTotal(),
+                              style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1E293B))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isBuying = false;
+                            _selectedTicket = null;
+                            _ticketQuantity = 1;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          foregroundColor: const Color(0xFF64748B),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Cancelar',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  '¡$_ticketQuantity billete(s) comprado(s)! Disponibles en tu perfil.'),
+                            ),
+                          );
+                          setState(() {
+                            _isBuying = false;
+                            _selectedTicket = null;
+                            _ticketQuantity = 1;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: _selectedTicket!['color'],
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.credit_card, size: 18),
+                            SizedBox(width: 8),
+                            Text('Pagar',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900, fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  ROUTES TAB (unchanged)
+  // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildRoutesTab() {
     return Column(
@@ -363,432 +1872,9 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  Widget _buildTicketsTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 8, bottom: 16),
-          child: Text(
-            'Recomendados para turistas',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1E293B)),
-          ),
-        ),
-        ..._touristTickets.map((ticket) => _buildTicketCard(ticket)),
-      ],
-    );
-  }
-
-  Widget _buildTicketCard(Map<String, dynamic> ticket) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: ticket['color'],
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                    color: (ticket['color'] as Color).withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4))
-              ],
-            ),
-            child: const Icon(Icons.confirmation_number,
-                color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(ticket['name'],
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                        color: Color(0xFF1E293B))),
-                const SizedBox(height: 4),
-                Text(ticket['desc'],
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF64748B),
-                        height: 1.3)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(ticket['price'],
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B))),
-              const SizedBox(height: 4),
-              GestureDetector(
-                onTap: () => setState(() {
-                  _selectedTicket = ticket;
-                  _isBuying = true;
-                }),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8)),
-                  child: const Text('Comprar',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0EA5E9))),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ✅ REPLACED: now includes quantity selector and dynamic total
-  Widget _buildPurchaseScreen() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Ticket icon
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: _selectedTicket!['color'],
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: (_selectedTicket!['color'] as Color)
-                            .withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.confirmation_number,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _selectedTicket!['name'],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E293B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _selectedTicket!['desc'],
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF64748B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-
-                // ✅ Quantity selector row
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Cantidad',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          // Minus button
-                          GestureDetector(
-                            onTap: () {
-                              if (_ticketQuantity > 1) {
-                                setState(() => _ticketQuantity--);
-                              }
-                            },
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: _ticketQuantity > 1
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.remove,
-                                size: 18,
-                                color: _ticketQuantity > 1
-                                    ? Colors.white
-                                    : const Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ),
-                          // Quantity display
-                          SizedBox(
-                            width: 48,
-                            child: Text(
-                              '$_ticketQuantity',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                          ),
-                          // Plus button
-                          GestureDetector(
-                            onTap: () {
-                              if (_ticketQuantity < 10) {
-                                setState(() => _ticketQuantity++);
-                              }
-                            },
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: _ticketQuantity < 10
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.add,
-                                size: 18,
-                                color: _ticketQuantity < 10
-                                    ? Colors.white
-                                    : const Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Price breakdown
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Column(
-                    children: [
-                      // Unit price row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Precio unitario',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          Text(
-                            _selectedTicket!['price'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                        ],
-                      ),
-                      // ✅ Quantity line only shown when qty > 1
-                      if (_ticketQuantity > 1) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'x$_ticketQuantity billetes',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.calculate_outlined,
-                              size: 16,
-                              color: Color(0xFF94A3B8),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      // ✅ Dynamic total
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Total a pagar',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          Text(
-                            _calculateTotal(), // ✅ reactive total
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _isBuying = false;
-                            _selectedTicket = null;
-                            _ticketQuantity = 1; // ✅ reset quantity
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          foregroundColor: const Color(0xFF64748B),
-                          side: BorderSide.none,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cancelar',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '¡$_ticketQuantity billete(s) comprado(s)! Disponibles en tu perfil.',
-                              ),
-                            ),
-                          );
-                          setState(() {
-                            _isBuying = false;
-                            _selectedTicket = null;
-                            _ticketQuantity = 1; // ✅ reset quantity
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: _selectedTicket!['color'],
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.credit_card, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Pagar',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ════════════════════════════════════════════════════════════════════════════
+  //  GUIDE TAB (unchanged)
+  // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildGuideTab() {
     return Column(
@@ -850,86 +1936,12 @@ class _TransportScreenState extends State<TransportScreen> {
         ]),
         const SizedBox(height: 12),
         const Text(
-            'Encontrarás máquinas rojas en todas las estaciones de metro. Puedes cambiar el idioma a inglés o francés en la pantalla inicial. ¡Recuerda que casi todo Barcelona es Zona 1!',
+            'Encontrarás máquinas rojas en todas las estaciones de metro. Puedes cambiar el idioma a inglés o francés en la pantalla inicial.',
             style: TextStyle(
                 color: Color(0xFF475569),
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
                 height: 1.5)),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF334155), width: 4)),
-          child: Column(children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Row(children: [
-                Icon(Icons.confirmation_number, color: Colors.white, size: 16),
-                SizedBox(width: 8),
-                Text('TMB Tickets',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: Colors.white))
-              ]),
-              Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFF475569),
-                      borderRadius: BorderRadius.circular(8)),
-                  child: const Text('EN | ES | FR',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white))),
-            ]),
-            const SizedBox(height: 12),
-            const Divider(color: Color(0xFF475569)),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFF0EA5E9),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: const Text('Hola BCN 48h\n(Recomendado)',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)))),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: const Text('T-Casual\n(10 viajes)',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)))),
-            ]),
-            const SizedBox(height: 8),
-            Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: const Color(0xFF475569),
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Text('Billete Sencillo (2.55€)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white))),
-          ]),
-        ),
         const SizedBox(height: 16),
         const Row(children: [
           Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
@@ -1000,78 +2012,6 @@ class _TransportScreenState extends State<TransportScreen> {
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
                 height: 1.5)),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(
-              child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      border:
-                          Border.all(color: const Color(0xFFFCD34D), width: 2),
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Column(children: [
-                    Container(
-                        height: 6,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFDC2626),
-                            borderRadius: BorderRadius.circular(3))),
-                    const Text('Billete de Cartón\n(Inserta aquí)',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF92400E)))
-                  ]))),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      border:
-                          Border.all(color: const Color(0xFFBAE6FD), width: 2),
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Column(children: [
-                    Container(
-                        width: 40,
-                        height: 40,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: const BoxDecoration(
-                            color: Color(0xFF3B82F6), shape: BoxShape.circle),
-                        child: const Icon(Icons.credit_card,
-                            color: Colors.white, size: 20)),
-                    const Text('Contactless\n(Acerca aquí)',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E40AF)))
-                  ]))),
-        ]),
-        const SizedBox(height: 16),
-        Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: const Column(children: [
-              Text(
-                  '🎫 Cartón: Introdúcelo por la ranura frontal y recógelo por arriba. ¡No lo pierdas!',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569))),
-              SizedBox(height: 8),
-              Text(
-                  '📱 T-Mobilitat: Acércalo al lector rojo con el símbolo de WiFi.',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569))),
-            ])),
       ]),
     );
   }
@@ -1126,61 +2066,11 @@ class _TransportScreenState extends State<TransportScreen> {
                   style: TextStyle(fontWeight: FontWeight.w900)),
               TextSpan(
                   text:
-                      ' para cambiar de medio de transporte sin que te cobren un segundo viaje.'),
+                      ' para cambiar de medio de transporte sin coste adicional.'),
             ])),
-        const SizedBox(height: 16),
-        Stack(alignment: Alignment.center, children: [
-          Container(
-              height: 4,
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2))),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2))
-                    ]),
-                child: const Text('🚇', style: TextStyle(fontSize: 32))),
-            Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFD1FAE5),
-                    border:
-                        Border.all(color: const Color(0xFF86EFAC), width: 2),
-                    borderRadius: BorderRadius.circular(20)),
-                child: const Text('75 min',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF059669)))),
-            Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2))
-                    ]),
-                child: const Text('🚌', style: TextStyle(fontSize: 32))),
-          ]),
-        ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         const Text(
-            '⚠️ Ojo: No puedes salir del metro y volver a entrar al metro con el mismo viaje.',
+            '⚠️ No puedes salir del metro y volver a entrar con el mismo viaje.',
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -1225,77 +2115,19 @@ class _TransportScreenState extends State<TransportScreen> {
                       color: Color(0xFF1E293B)))),
         ]),
         const SizedBox(height: 12),
-        ...AppConstants.transportOptions.map((opt) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0))),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2))
-                      ]),
-                  child: Text(opt.icon, style: const TextStyle(fontSize: 28))),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Row(children: [
-                      Expanded(
-                          child: Text(opt.name,
-                              style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF1E293B)))),
-                      Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(6)),
-                          child: Text(opt.price,
-                              style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF16A34A)))),
-                    ]),
-                    const SizedBox(height: 4),
-                    Text(opt.description,
-                        style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF64748B),
-                            height: 1.4)),
-                    const SizedBox(height: 8),
-                    Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFEF3C7))),
-                        child: Text('💡 ${opt.tips}',
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF92400E)))),
-                  ])),
-            ]),
-          );
-        }).toList(),
+        const Text(
+            'Use the Medios tab to explore all transport options in detail.',
+            style: TextStyle(
+                color: Color(0xFF475569),
+                fontWeight: FontWeight.w500,
+                fontSize: 14)),
       ]),
     );
   }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  INFO TAB (unchanged)
+  // ════════════════════════════════════════════════════════════════════════════
 
   Widget _buildInfoTab() {
     final query = _infoSearchQuery.toLowerCase();
@@ -1309,7 +2141,6 @@ class _TransportScreenState extends State<TransportScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Search bar ───────────────────────────────────────
         Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -1344,8 +2175,6 @@ class _TransportScreenState extends State<TransportScreen> {
             ),
           ),
         ),
-
-        // ── Popular Destinations ─────────────────────────────
         if (query.isEmpty) ...[
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 12),
@@ -1372,8 +2201,6 @@ class _TransportScreenState extends State<TransportScreen> {
           ),
           const SizedBox(height: 24),
         ],
-
-        // ── Transport options header ─────────────────────────
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 12),
           child: Row(children: [
@@ -1390,7 +2217,6 @@ class _TransportScreenState extends State<TransportScreen> {
             ),
           ]),
         ),
-
         if (filtered.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
@@ -1526,7 +2352,6 @@ class _TransportScreenState extends State<TransportScreen> {
   Widget _buildExpandableCard(TransportOption opt) {
     final isExpanded = _expandedInfo == opt.id;
 
-    // Extra detail data keyed by transport id
     final Map<String, Map<String, dynamic>> _extraDetails = {
       'metro': {
         'lines': [
@@ -1679,8 +2504,6 @@ class _TransportScreenState extends State<TransportScreen> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Divider(color: Color(0xFFE2E8F0)),
               const SizedBox(height: 12),
-
-              // Description
               Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -1694,8 +2517,6 @@ class _TransportScreenState extends State<TransportScreen> {
                           color: Color(0xFF475569),
                           height: 1.5))),
               const SizedBox(height: 12),
-
-              // Lines chips
               if (extra != null) ...[
                 const Text('Líneas principales',
                     style: TextStyle(
@@ -1728,8 +2549,6 @@ class _TransportScreenState extends State<TransportScreen> {
                           )),
                 ),
                 const SizedBox(height: 12),
-
-                // Hours & frequency
                 Row(children: [
                   Expanded(
                     child: Container(
@@ -1794,8 +2613,6 @@ class _TransportScreenState extends State<TransportScreen> {
                   ),
                 ]),
                 const SizedBox(height: 8),
-
-                // Zone info
                 Container(
                   width: double.infinity,
                   padding:
@@ -1819,8 +2636,6 @@ class _TransportScreenState extends State<TransportScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-
-              // Tip
               Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
