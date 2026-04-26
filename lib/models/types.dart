@@ -15,7 +15,8 @@ enum ScreenName {
   currency,
   security,
   profile,
-  firstTimeGuide
+  firstTimeGuide,
+  favorites
 }
 
 class Attraction {

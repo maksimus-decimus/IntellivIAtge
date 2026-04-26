@@ -74,6 +74,13 @@ class AppConstants {
       color: const Color(0xFFF87171),
       shadowColor: const Color(0xFFDC2626),
     ),
+    MenuItem(
+      id: ScreenName.favorites,
+      label: 'Favoritos',
+      icon: Icons.bookmark,
+      color: const Color(0xFFEC4899),
+      shadowColor: const Color(0xFFBE185D),
+    ),
   ];
 
   // Barcelona Attractions

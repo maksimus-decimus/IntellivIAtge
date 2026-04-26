@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../models/types.dart';
+import '../services/favorites_service.dart';
 
 enum RestaurantTab { dishes, restaurants }
 
@@ -19,6 +20,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   Restaurant? _selectedRestaurant;
   Dish? _selectedDish;
   String? _selectedRestaurantType; // Filter for restaurant type
+  final FavoritesService _favoritesService = FavoritesService();
+  Set<String> _favoriteRestaurantIds = {};
 
   void _closeView() {
     setState(() {
@@ -26,6 +29,32 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       _selectedRestaurant = null;
       _selectedDish = null;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    await _favoritesService.init();
+    final favorites = await _favoritesService.getRestaurantFavorites();
+    setState(() {
+      _favoriteRestaurantIds = favorites.map((fav) => fav.id).toSet();
+    });
+  }
+
+  Future<void> _toggleRestaurantFavorite(Restaurant restaurant) async {
+    final isFavorite = _favoriteRestaurantIds.contains(restaurant.id);
+    
+    if (isFavorite) {
+      await _favoritesService.removeRestaurantFavorite(restaurant.id);
+    } else {
+      await _favoritesService.addRestaurantFavorite(restaurant);
+    }
+    
+    _loadFavorites();
   }
 
   List<String> get _restaurantTypes {
@@ -935,24 +964,60 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  restaurant.image ?? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
+              // Image with Favorite Button
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      restaurant.image ?? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
                       width: 100,
                       height: 100,
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Icon(Icons.restaurant, color: Colors.grey),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 100,
+                          height: 100,
+                          color: Colors.grey[300],
+                          child: const Center(
+                            child: Icon(Icons.restaurant, color: Colors.grey),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Favorite Button
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => _toggleRestaurantFavorite(restaurant),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(50),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          _favoriteRestaurantIds.contains(restaurant.id)
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: _favoriteRestaurantIds.contains(restaurant.id)
+                              ? const Color(0xFFEF4444)
+                              : Colors.grey[600],
+                          size: 18,
+                        ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 12),
               Expanded(

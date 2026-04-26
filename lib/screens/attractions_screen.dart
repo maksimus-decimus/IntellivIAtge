@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../models/types.dart';
+import '../services/favorites_service.dart';
 
 class AttractionsScreen extends StatefulWidget {
   const AttractionsScreen({Key? key}) : super(key: key);
@@ -11,6 +12,8 @@ class AttractionsScreen extends StatefulWidget {
 
 class _AttractionsScreenState extends State<AttractionsScreen> {
   String? _selectedCategory;
+  final FavoritesService _favoritesService = FavoritesService();
+  Set<String> _favoriteIds = {};
   
   List<Attraction> get _filteredAttractions {
     if (_selectedCategory == null) {
@@ -27,6 +30,32 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
         .toSet()
         .toList()
       ..sort();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    await _favoritesService.init();
+    final favorites = await _favoritesService.getAttractionFavorites();
+    setState(() {
+      _favoriteIds = favorites.map((fav) => fav.id).toSet();
+    });
+  }
+
+  Future<void> _toggleFavorite(Attraction attraction) async {
+    final isFavorite = _favoriteIds.contains(attraction.id);
+    
+    if (isFavorite) {
+      await _favoritesService.removeAttractionFavorite(attraction.id);
+    } else {
+      await _favoritesService.addAttractionFavorite(attraction);
+    }
+    
+    _loadFavorites();
   }
 
   @override
@@ -130,24 +159,59 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Image
-                          ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                            child: Image.network(
-                              attraction.image,
-                              height: 240,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  height: 200,
-                                  color: Colors.grey.shade200,
-                                  child: const Center(
-                                    child: Icon(Icons.image, size: 64, color: Colors.grey),
+                          // Image with Favorite Button
+                          Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                child: Image.network(
+                                  attraction.image,
+                                  height: 240,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 200,
+                                      color: Colors.grey.shade200,
+                                      child: const Center(
+                                        child: Icon(Icons.image, size: 64, color: Colors.grey),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              // Favorite Button
+                              Positioned(
+                                top: 12,
+                                right: 12,
+                                child: GestureDetector(
+                                  onTap: () => _toggleFavorite(attraction),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(50),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.15),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    padding: const EdgeInsets.all(8),
+                                    child: Icon(
+                                      _favoriteIds.contains(attraction.id)
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: _favoriteIds.contains(attraction.id)
+                                          ? const Color(0xFFEF4444)
+                                          : Colors.grey[600],
+                                      size: 24,
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              ),
+                            ],
                           ),
                           Padding(
                             padding: const EdgeInsets.all(20),

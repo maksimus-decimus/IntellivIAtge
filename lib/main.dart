@@ -25,6 +25,7 @@ import 'screens/map_screen.dart';
 import 'screens/security_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/first_time_guide_screen.dart';
+import 'screens/favorites_screen.dart';
 
 void main() async {
   // 1. Ensure Flutter and Firebase are initialized
@@ -143,6 +144,8 @@ class _MainScreenState extends State<MainScreen> {
         return 'Mi Perfil';
       case ScreenName.firstTimeGuide:
         return 'Guía Inicial';
+      case ScreenName.favorites:
+        return 'Mis Favoritos';
       default:
         return 'IntellivIAtge';
     }
@@ -185,6 +188,8 @@ class _MainScreenState extends State<MainScreen> {
             _currentScreen = ScreenName.home;
           });
         });
+      case ScreenName.favorites:
+        return const FavoritesScreen();
     }
   }
 
