@@ -190,20 +190,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Actualizar en Firestore
       await UserService().createOrUpdateUserProfile(photoUrl: avatarUrl);
 
+      if (!mounted) return;
+
       // Actualizar UI
       setState(() {
         _photoUrl = avatarUrl;
       });
 
-      if (mounted) {
-        Navigator.pop(context); // Cerrar modal
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Avatar actualizado con éxito! ✨'),
-            backgroundColor: Color(0xFF34D399),
-          ),
-        );
-      }
+      Navigator.pop(context); // Cerrar modal
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Avatar actualizado con éxito! ✨'),
+          backgroundColor: Color(0xFF34D399),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -218,12 +218,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateDisplayName() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('El nombre no puede estar vacío'),
-          backgroundColor: Colors.orangeAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El nombre no puede estar vacío'),
+            backgroundColor: Colors.orangeAccent,
+          ),
+        );
+      }
       return;
     }
 
@@ -233,19 +235,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await user.updateDisplayName(_nameController.text.trim());
         await user.reload();
         
+        if (!mounted) return;
+
         setState(() {
           _displayName = _nameController.text.trim();
         });
 
-        if (mounted) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Nombre actualizado con éxito! ✨'),
-              backgroundColor: Color(0xFF34D399),
-            ),
-          );
-        }
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Nombre actualizado con éxito! ✨'),
+            backgroundColor: Color(0xFF34D399),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
