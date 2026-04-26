@@ -16,6 +16,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   String? _photoUrl;
   bool _hasImageError = false;
   final TextEditingController _nameController = TextEditingController();
+  
+  // Preferencias de notificaciones
+  bool _notifTrips = true;
+  bool _notifInvitations = true;
+  bool _notifReminders = true;
+  
+  // Idioma seleccionado
+  String _selectedLanguage = 'Español';
 
   // Avatares predefinidos (imágenes locales)
   static const List<String> _avatarOptions = [
@@ -347,6 +355,235 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
+  // Mostrar configuración de notificaciones
+  void _showNotificationSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Notificaciones',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Configura qué notificaciones deseas recibir',
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 24),
+              SwitchListTile(
+                title: const Text(
+                  'Nuevos viajes',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Cuando se crea o actualiza un viaje'),
+                value: _notifTrips,
+                activeColor: const Color(0xFF6366F1),
+                onChanged: (val) {
+                  setModalState(() => _notifTrips = val);
+                  setState(() => _notifTrips = val);
+                },
+              ),
+              SwitchListTile(
+                title: const Text(
+                  'Invitaciones',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Cuando te invitan a un viaje o grupo'),
+                value: _notifInvitations,
+                activeColor: const Color(0xFF6366F1),
+                onChanged: (val) {
+                  setModalState(() => _notifInvitations = val);
+                  setState(() => _notifInvitations = val);
+                },
+              ),
+              SwitchListTile(
+                title: const Text(
+                  'Recordatorios',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text('Recordatorios de viajes próximos'),
+                value: _notifReminders,
+                activeColor: const Color(0xFF6366F1),
+                onChanged: (val) {
+                  setModalState(() => _notifReminders = val);
+                  setState(() => _notifReminders = val);
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Guardar',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Mostrar selector de idioma
+  void _showLanguageSelector() {
+    final languages = ['Español', 'English', 'Català', 'Français', 'Deutsch', 'Italiano'];
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Seleccionar Idioma',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Elige el idioma de la aplicación',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 16),
+            ...languages.map((lang) => RadioListTile<String>(
+              title: Text(
+                lang,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              value: lang,
+              groupValue: _selectedLanguage,
+              activeColor: const Color(0xFF6366F1),
+              onChanged: (val) {
+                setState(() => _selectedLanguage = val!);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Idioma cambiado a $val'),
+                    backgroundColor: const Color(0xFF34D399),
+                  ),
+                );
+              },
+            )),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Mostrar ayuda y soporte
+  void _showHelpAndSupport() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline, color: Color(0xFF6366F1), size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Ayuda y Soporte',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _HelpSection(
+                icon: Icons.email,
+                title: 'Contacto',
+                description: 'soporte@intelliviatge.com',
+              ),
+              const SizedBox(height: 16),
+              const _HelpSection(
+                icon: Icons.phone,
+                title: 'Teléfono',
+                description: '+34 900 123 456',
+              ),
+              const SizedBox(height: 16),
+              const _HelpSection(
+                icon: Icons.schedule,
+                title: 'Horario',
+                description: 'Lunes a Viernes\n9:00 - 18:00',
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Preguntas Frecuentes',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const _FAQItem(
+                question: '¿Cómo creo un viaje?',
+                answer: 'Ve a la sección "Rutas y Viajes" y pulsa el botón "+" en la esquina superior derecha.',
+              ),
+              const _FAQItem(
+                question: '¿Cómo invito amigos?',
+                answer: 'Abre un viaje y pulsa "Invitar Amigo". Busca por email y envía la invitación.',
+              ),
+              const _FAQItem(
+                question: '¿Puedo cambiar mi avatar?',
+                answer: 'Sí, toca tu foto de perfil para elegir un nuevo avatar.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cerrar',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -596,17 +833,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           _SettingsOption(
             icon: Icons.notifications,
             title: 'Notificaciones',
-            onTap: () {},
+            onTap: _showNotificationSettings,
           ),
           _SettingsOption(
             icon: Icons.language,
             title: 'Idioma',
-            onTap: () {},
+            onTap: _showLanguageSelector,
           ),
           _SettingsOption(
             icon: Icons.help_outline,
             title: 'Ayuda y Soporte',
-            onTap: () {},
+            onTap: _showHelpAndSupport,
           ),
           _SettingsOption(
             icon: Icons.logout,
@@ -762,6 +999,88 @@ class _SettingsOption extends StatelessWidget {
           Icons.chevron_right,
           color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
         ),
+      ),
+    );
+  }
+}
+
+// Widget helper para mostrar información de contacto
+class _HelpSection extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  const _HelpSection({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF6366F1), size: 24),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: const TextStyle(color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Widget helper para preguntas frecuentes
+class _FAQItem extends StatelessWidget {
+  final String question;
+  final String answer;
+
+  const _FAQItem({
+    required this.question,
+    required this.answer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '❓ $question',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            answer,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
