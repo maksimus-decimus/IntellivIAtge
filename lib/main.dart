@@ -88,6 +88,9 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   late final OllamaService _ollamaService;
+  
+  // Cache the user's photo URL to prevent it from disappearing during navigation
+  String? _cachedPhotoUrl;
 
   @override
   void initState() {
@@ -100,6 +103,7 @@ class _MainScreenState extends State<MainScreen> {
     await FirebaseAuth.instance.signOut();
     setState(() {
       _currentScreen = ScreenName.home; // Reset to home for next login
+      _cachedPhotoUrl = null; // Clear cached photo on logout
     });
   }
 
@@ -206,19 +210,30 @@ class _MainScreenState extends State<MainScreen> {
 
         // If user IS logged in, listen to user profile from Firestore
         final user = snapshot.data!;
+        
+        // Initialize cache with Firebase Auth photo if not set
+        _cachedPhotoUrl ??= user.photoURL;
+        
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .snapshots(),
           builder: (context, userDoc) {
-            String? photoUrl;
+            // Only update cached photoUrl when we have valid data
+            // This prevents the photo from disappearing during navigation
             if (userDoc.hasData && userDoc.data != null) {
               final data = userDoc.data!.data() as Map<String, dynamic>?;
-              photoUrl = data?['photoUrl'] as String?;
+              if (data != null && data.containsKey('photoUrl')) {
+                final newPhotoUrl = data['photoUrl'] as String?;
+                if (newPhotoUrl != null && newPhotoUrl.isNotEmpty) {
+                  _cachedPhotoUrl = newPhotoUrl;
+                }
+              }
             }
-            // Fallback to Firebase Auth photo
-            photoUrl ??= user.photoURL;
+            
+            // Use cached photo first, then fallback to Firebase Auth photo
+            final photoUrl = _cachedPhotoUrl ?? user.photoURL;
 
             return AppLayout(
               currentScreen: _currentScreen,

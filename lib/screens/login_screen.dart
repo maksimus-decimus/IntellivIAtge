@@ -141,11 +141,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await FirebaseAuth.instance.signInWithCredential(credential);
       
-      // Guardar nombre y foto del perfil de Google
-      await UserService().createOrUpdateUserProfile(
-        displayName: googleUser.displayName,
-        photoUrl: googleUser.photoUrl,
+      // Verificar si es el primer login del usuario
+      final userProfile = await UserService().getUserProfile(
+        FirebaseAuth.instance.currentUser!.uid
       );
+      
+      // Solo actualizar la foto de Google si es el primer login
+      // o si el usuario no tiene una foto personalizada
+      if (userProfile == null) {
+        // Primer login: guardar foto de Google
+        await UserService().createOrUpdateUserProfile(
+          displayName: googleUser.displayName,
+          photoUrl: googleUser.photoUrl,
+        );
+      } else {
+        // Login subsecuente: solo actualizar nombre, preservar foto personalizada
+        await UserService().createOrUpdateUserProfile(
+          displayName: googleUser.displayName,
+          photoUrl: userProfile.photoUrl, // Mantener la foto existente
+        );
+      }
+      
       await UserService().setOnline();
 
       if (mounted) {

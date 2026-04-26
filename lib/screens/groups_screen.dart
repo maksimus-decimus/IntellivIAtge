@@ -726,59 +726,82 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Align(
-                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 300),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isMe ? Colors.indigo : Colors.white,
-                            border: isMe ? null : Border.all(color: Colors.grey[200]!),
-                            borderRadius: BorderRadius.only(
-                              topLeft: const Radius.circular(16),
-                              topRight: const Radius.circular(16),
-                              bottomLeft: Radius.circular(isMe ? 16 : 4),
-                              bottomRight: Radius.circular(isMe ? 4 : 16),
+                      child: Row(
+                        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // Show avatar for other users' messages
+                          if (!isMe) ...[
+                            FutureBuilder<types.UserProfile?>(
+                              future: _userService.getUserProfile(message.senderId),
+                              builder: (context, snapshot) {
+                                final photoUrl = snapshot.data?.photoUrl;
+                                final userName = snapshot.data?.name ?? '?';
+                                return _buildUserAvatar(
+                                  photoUrl: photoUrl,
+                                  userName: userName,
+                                  radius: 14,
+                                  backgroundColor: Colors.grey[300],
+                                  textColor: Colors.grey[700],
+                                );
+                              },
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
-                                blurRadius: 4,
+                            const SizedBox(width: 8),
+                          ],
+                          
+                          // Message bubble
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 300),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isMe ? Colors.indigo : Colors.white,
+                              border: isMe ? null : Border.all(color: Colors.grey[200]!),
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(16),
+                                topRight: const Radius.circular(16),
+                                bottomLeft: Radius.circular(isMe ? 16 : 4),
+                                bottomRight: Radius.circular(isMe ? 4 : 16),
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                message.text ?? '',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isMe ? Colors.white : const Color(0xFF334155),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.03),
+                                  blurRadius: 4,
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _formatTime(message.timestamp),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: isMe ? Colors.indigo[200] : Colors.grey[400],
-                                    ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  message.text ?? '',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: isMe ? Colors.white : const Color(0xFF334155),
                                   ),
-                                  if (isMe) ...[
-                                    const SizedBox(width: 4),
-                                    _buildMessageStatus(message.status),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatTime(message.timestamp),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isMe ? Colors.indigo[200] : Colors.grey[400],
+                                      ),
+                                    ),
+                                    if (isMe) ...[
+                                      const SizedBox(width: 4),
+                                      _buildMessageStatus(message.status),
+                                    ],
                                   ],
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     );
                   },
@@ -1306,17 +1329,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
           children: [
             Stack(
               children: [
-                CircleAvatar(
+                _buildUserAvatar(
+                  photoUrl: friend.photoUrl,
+                  userName: friend.name,
                   radius: 28,
                   backgroundColor: Colors.indigo[100],
-                  child: Text(
-                    friend.name[0].toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.indigo,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
+                  textColor: Colors.indigo,
                 ),
                 Positioned(
                   bottom: 0,
@@ -1413,32 +1431,23 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     future: _userService.getUserProfile(otherUserId),
                     builder: (context, snapshot) {
                       final userName = snapshot.data?.name ?? 'U';
-                      return CircleAvatar(
+                      final photoUrl = snapshot.data?.photoUrl;
+                      return _buildUserAvatar(
+                        photoUrl: photoUrl,
+                        userName: userName,
                         radius: 28,
                         backgroundColor: Colors.indigo,
-                        child: Text(
-                          userName[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
+                        textColor: Colors.white,
                       );
                     },
                   )
                 else
-                  CircleAvatar(
+                  _buildUserAvatar(
+                    photoUrl: null,
+                    userName: conversationName,
                     radius: 28,
                     backgroundColor: Colors.indigo,
-                    child: Text(
-                      conversationName[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
-                    ),
+                    textColor: Colors.white,
                   ),
                 if (conversation.type == 'group')
                   Positioned(
@@ -1571,17 +1580,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
           ),
           child: Row(
             children: [
-              CircleAvatar(
+              _buildUserAvatar(
+                photoUrl: user.photoUrl,
+                userName: user.name,
                 radius: 24,
                 backgroundColor: Colors.orange[100],
-                child: Text(
-                  user.name[0].toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.orange[700],
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
+                textColor: Colors.orange[700],
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1713,6 +1717,66 @@ class _GroupsScreenState extends State<GroupsScreen> {
     } else {
       return '${timestamp.day}/${timestamp.month}';
     }
+  }
+
+  // Helper widget to build user avatar with photo or initial fallback
+  Widget _buildUserAvatar({
+    required String? photoUrl,
+    required String userName,
+    required double radius,
+    Color? backgroundColor,
+    Color? textColor,
+  }) {
+    // Helper to build image widget based on URL type
+    Widget buildImage(String imageUrl) {
+      final isLocalAsset = !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://');
+      
+      if (isLocalAsset) {
+        return Image.asset(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildInitialFallback(userName, textColor),
+        );
+      } else {
+        return Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: SizedBox(
+                width: radius * 0.6,
+                height: radius * 0.6,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(textColor ?? Colors.white),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) => _buildInitialFallback(userName, textColor),
+        );
+      }
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: backgroundColor ?? Colors.indigo[100],
+      child: photoUrl != null && photoUrl.isNotEmpty
+          ? ClipOval(child: buildImage(photoUrl))
+          : _buildInitialFallback(userName, textColor),
+    );
+  }
+
+  Widget _buildInitialFallback(String userName, Color? textColor) {
+    return Text(
+      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+      style: TextStyle(
+        color: textColor ?? Colors.indigo,
+        fontWeight: FontWeight.bold,
+        fontSize: 20,
+      ),
+    );
   }
 
   Widget _buildMessageStatus(types.MessageStatus status) {
