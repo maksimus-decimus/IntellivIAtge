@@ -14,7 +14,84 @@ class _TransportScreenState extends State<TransportScreen> {
   String? _expandedInfo;
   bool _isBuying = false;
   Map<String, dynamic>? _selectedTicket;
-  int _ticketQuantity = 1; // ✅ NEW
+  int _ticketQuantity = 1;
+  String _infoSearchQuery = '';
+
+  // Popular destinations data
+  final List<Map<String, dynamic>> _popularDestinations = [
+    {
+      'name': 'Sagrada Família',
+      'emoji': '⛪',
+      'transport': 'Metro L2/L5',
+      'stop': 'Sagrada Família',
+      'time': '~5 min walk',
+      'color': const Color(0xFF6366F1),
+      'tip': 'Buy tickets online to skip the queue.',
+    },
+    {
+      'name': 'Park Güell',
+      'emoji': '🌿',
+      'transport': 'Bus 92 / 116',
+      'stop': 'Ctra del Carmel',
+      'time': '~10 min walk',
+      'color': const Color(0xFF10B981),
+      'tip': 'Book timed entry in advance — limited daily visitors.',
+    },
+    {
+      'name': 'La Barceloneta',
+      'emoji': '🏖️',
+      'transport': 'Metro L4',
+      'stop': 'Barceloneta',
+      'time': '~8 min walk',
+      'color': const Color(0xFF0EA5E9),
+      'tip': 'Go early in summer — beach gets packed by 10am.',
+    },
+    {
+      'name': 'Camp Nou',
+      'emoji': '🏟️',
+      'transport': 'Metro L3',
+      'stop': 'Les Corts / Palau Reial',
+      'time': '~12 min walk',
+      'color': const Color(0xFFEC4899),
+      'tip': 'Check for match days — stadium tours close early.',
+    },
+    {
+      'name': 'La Boqueria',
+      'emoji': '🛒',
+      'transport': 'Metro L3',
+      'stop': 'Liceu',
+      'time': '~2 min walk',
+      'color': const Color(0xFFF59E0B),
+      'tip': 'Visit before 11am for a calmer, more local experience.',
+    },
+    {
+      'name': 'Montjuïc',
+      'emoji': '🏰',
+      'transport': 'Cable car / Bus 150',
+      'stop': 'Paral·lel (Metro L2/L3)',
+      'time': 'Take funicular from Paral·lel',
+      'color': const Color(0xFFEF4444),
+      'tip': 'The funicular is included with your metro ticket.',
+    },
+    {
+      'name': 'El Born / Gothic Quarter',
+      'emoji': '🏛️',
+      'transport': 'Metro L4',
+      'stop': 'Jaume I',
+      'time': '~3 min walk',
+      'color': const Color(0xFF8B5CF6),
+      'tip': 'Explore on foot — most sights are within 15 min of each other.',
+    },
+    {
+      'name': 'Aeroport T1 / T2',
+      'emoji': '✈️',
+      'transport': 'Aerobus / Metro L9 Sud',
+      'stop': 'Pl. Catalunya / T1 & T2',
+      'time': '35–45 min from centre',
+      'color': const Color(0xFF64748B),
+      'tip': 'Aerobus is faster and runs 24h. Metro L9 is cheaper.',
+    },
+  ];
 
   final List<Map<String, dynamic>> _touristTickets = [
     {
@@ -1221,25 +1298,318 @@ class _TransportScreenState extends State<TransportScreen> {
   }
 
   Widget _buildInfoTab() {
+    final query = _infoSearchQuery.toLowerCase();
+    final filtered = AppConstants.transportOptions
+        .where((opt) =>
+            query.isEmpty ||
+            opt.name.toLowerCase().contains(query) ||
+            opt.description.toLowerCase().contains(query))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 8, bottom: 16),
-          child: Text('Guía de Transportes',
-              style: TextStyle(
+        // ── Search bar ───────────────────────────────────────
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4)),
+            ],
+          ),
+          child: TextField(
+            onChanged: (v) => setState(() => _infoSearchQuery = v),
+            decoration: InputDecoration(
+              hintText: 'Buscar medio de transporte...',
+              hintStyle: const TextStyle(
+                  fontWeight: FontWeight.w600, color: Color(0xFF94A3B8)),
+              prefixIcon:
+                  const Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+              suffixIcon: _infoSearchQuery.isNotEmpty
+                  ? GestureDetector(
+                      onTap: () => setState(() => _infoSearchQuery = ''),
+                      child: const Icon(Icons.close,
+                          color: Color(0xFF94A3B8), size: 18),
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ),
+
+        // ── Popular Destinations ─────────────────────────────
+        if (query.isEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 12),
+            child: Row(children: [
+              Text('📍', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 8),
+              Text('Destinos Populares',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B))),
+            ]),
+          ),
+          SizedBox(
+            height: 195,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(left: 4, right: 4, bottom: 4),
+              itemCount: _popularDestinations.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) =>
+                  _buildDestinationCard(_popularDestinations[i]),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+
+        // ── Transport options header ─────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Row(children: [
+            const Text('🚇', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(
+              query.isEmpty
+                  ? 'Medios de Transporte'
+                  : '${filtered.length} resultado${filtered.length == 1 ? '' : 's'}',
+              style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF1E293B))),
+                  color: Color(0xFF1E293B)),
+            ),
+          ]),
         ),
-        ...AppConstants.transportOptions
-            .map((opt) => _buildExpandableCard(opt)),
+
+        if (filtered.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: const Center(
+              child: Column(children: [
+                Text('🔍', style: TextStyle(fontSize: 32)),
+                SizedBox(height: 8),
+                Text('Sin resultados',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E293B),
+                        fontSize: 16)),
+                SizedBox(height: 4),
+                Text('Prueba con metro, bus, tren...',
+                    style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
+              ]),
+            ),
+          )
+        else
+          ...filtered.map((opt) => _buildExpandableCard(opt)),
       ],
+    );
+  }
+
+  Widget _buildDestinationCard(Map<String, dynamic> dest) {
+    final color = dest['color'] as Color;
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                  child: Text(dest['emoji'],
+                      style: const TextStyle(fontSize: 18))),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20)),
+              child: Text(dest['transport'],
+                  style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w900, color: color)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(dest['name'],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E293B))),
+          const SizedBox(height: 3),
+          Row(children: [
+            const Icon(Icons.place_outlined,
+                size: 11, color: Color(0xFF94A3B8)),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(dest['stop'],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B))),
+            ),
+          ]),
+          const SizedBox(height: 2),
+          Row(children: [
+            const Icon(Icons.directions_walk,
+                size: 11, color: Color(0xFF94A3B8)),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(dest['time'],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF94A3B8))),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8)),
+            child: Text('💡 ${dest['tip']}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E),
+                    height: 1.4)),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildExpandableCard(TransportOption opt) {
     final isExpanded = _expandedInfo == opt.id;
+
+    // Extra detail data keyed by transport id
+    final Map<String, Map<String, dynamic>> _extraDetails = {
+      'metro': {
+        'lines': [
+          'L1',
+          'L2',
+          'L3',
+          'L4',
+          'L5',
+          'L9N',
+          'L9S',
+          'L10N',
+          'L10S',
+          'L11'
+        ],
+        'lineColors': [
+          const Color(0xFFE3000B),
+          const Color(0xFF7B1FA2),
+          const Color(0xFF007F41),
+          const Color(0xFFFFD700),
+          const Color(0xFF003F8A),
+          const Color(0xFFE87722),
+          const Color(0xFFE87722),
+          const Color(0xFF009FE3),
+          const Color(0xFF009FE3),
+          const Color(0xFF009FE3),
+        ],
+        'hours':
+            'Mon–Thu & Sun: 5am–12am\nFri: 5am–2am\nSat & eves of holidays: 24h',
+        'frequency': 'Every 3–6 min (peak) / 6–10 min (off-peak)',
+        'zones': 'Zone 1 covers all of Barcelona city',
+      },
+      'bus': {
+        'lines': ['H6', 'H10', 'H16', 'V7', 'V13', 'V17', '24', 'N4'],
+        'lineColors': [
+          const Color(0xFF10B981),
+          const Color(0xFF10B981),
+          const Color(0xFF10B981),
+          const Color(0xFF0EA5E9),
+          const Color(0xFF0EA5E9),
+          const Color(0xFF0EA5E9),
+          const Color(0xFF6366F1),
+          const Color(0xFF1E293B),
+        ],
+        'hours': 'Most lines: 5am–11pm\nNit Bus (N lines): 10:30pm–5am',
+        'frequency': 'Every 6–12 min on main routes',
+        'zones': 'Same zone system as metro — T-Casual valid',
+      },
+      'fgc': {
+        'lines': ['S1', 'S2', 'S5', 'S55', 'L6', 'L7', 'R5', 'R6'],
+        'lineColors': [
+          const Color(0xFF8B5CF6),
+          const Color(0xFF8B5CF6),
+          const Color(0xFF8B5CF6),
+          const Color(0xFF8B5CF6),
+          const Color(0xFF8B5CF6),
+          const Color(0xFF8B5CF6),
+          const Color(0xFFEC4899),
+          const Color(0xFFEC4899),
+        ],
+        'hours': 'Mon–Thu: 5am–12am\nFri–Sat: 5am–2am\nSun: 6am–12am',
+        'frequency': 'Every 6–15 min depending on line',
+        'zones': 'Connects to Zone 2+ suburbs (Tibidabo, Montserrat)',
+      },
+      'rodalies': {
+        'lines': ['R1', 'R2', 'R3', 'R4', 'R7', 'R10', 'R11', 'R12'],
+        'lineColors': [
+          const Color(0xFFE3000B),
+          const Color(0xFF007F41),
+          const Color(0xFFFFD700),
+          const Color(0xFF003F8A),
+          const Color(0xFF6366F1),
+          const Color(0xFF0EA5E9),
+          const Color(0xFFEC4899),
+          const Color(0xFF10B981),
+        ],
+        'hours': 'Approx. 5am–11:30pm (varies by line)',
+        'frequency': 'Every 15–30 min',
+        'zones': 'Multi-zone — check before boarding',
+      },
+    };
+
+    final extra = _extraDetails[opt.id];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -1270,18 +1640,32 @@ class _TransportScreenState extends State<TransportScreen> {
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF1E293B))),
-                    const SizedBox(height: 4),
-                    Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Text(opt.price,
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF16A34A)))),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: Text(opt.price,
+                              style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF16A34A)))),
+                      const SizedBox(width: 6),
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: const Text('Ver detalles',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF3B82F6)))),
+                    ]),
                   ])),
               Icon(isExpanded ? Icons.expand_less : Icons.expand_more,
                   color: const Color(0xFF94A3B8)),
@@ -1290,15 +1674,16 @@ class _TransportScreenState extends State<TransportScreen> {
         ),
         if (isExpanded)
           Container(
-            padding: const EdgeInsets.all(16).copyWith(top: 0),
-            decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0)))),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Divider(color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 12),
+
+              // Description
               Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(top: 12, bottom: 12),
                   decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12)),
@@ -1308,6 +1693,134 @@ class _TransportScreenState extends State<TransportScreen> {
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF475569),
                           height: 1.5))),
+              const SizedBox(height: 12),
+
+              // Lines chips
+              if (extra != null) ...[
+                const Text('Líneas principales',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E293B))),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: List.generate(
+                      (extra['lines'] as List).length,
+                      (i) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                                color: (extra['lineColors'] as List<Color>)[i]
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color:
+                                        (extra['lineColors'] as List<Color>)[i]
+                                            .withValues(alpha: 0.4))),
+                            child: Text(extra['lines'][i],
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: (extra['lineColors']
+                                        as List<Color>)[i])),
+                          )),
+                ),
+                const SizedBox(height: 12),
+
+                // Hours & frequency
+                Row(children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(children: [
+                              Icon(Icons.access_time,
+                                  size: 14, color: Color(0xFF6366F1)),
+                              SizedBox(width: 4),
+                              Text('Horario',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF6366F1))),
+                            ]),
+                            const SizedBox(height: 6),
+                            Text(extra['hours'],
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                    height: 1.5)),
+                          ]),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0))),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(children: [
+                              Icon(Icons.speed,
+                                  size: 14, color: Color(0xFF10B981)),
+                              SizedBox(width: 4),
+                              Text('Frecuencia',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF10B981))),
+                            ]),
+                            const SizedBox(height: 6),
+                            Text(extra['frequency'],
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                    height: 1.5)),
+                          ]),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+
+                // Zone info
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFDBEAFE))),
+                  child: Row(children: [
+                    const Icon(Icons.map_outlined,
+                        size: 14, color: Color(0xFF3B82F6)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(extra['zones'],
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1D4ED8))),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Tip
               Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
