@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/user_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -12,7 +13,18 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String _displayName = 'Viajero Explorador';
+  String? _photoUrl;
+  bool _hasImageError = false;
   final TextEditingController _nameController = TextEditingController();
+
+  // Avatares predefinidos (imágenes locales)
+  static const List<String> _avatarOptions = [
+    'images/avatars/avatar1.jpg',
+    'images/avatars/avatar2.jpg',
+    'images/avatars/avatar3.jpg',
+    'images/avatars/avatar4.jpg',
+    'images/avatars/avatar5.jpg',
+  ];
 
   @override
   void initState() {
@@ -26,12 +38,181 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _loadUserName() {
+  void _loadUserName() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.displayName != null && user.displayName!.isNotEmpty) {
+    if (user != null) {
+      // Cargar desde Firestore (tiene prioridad sobre Firebase Auth)
+      final profile = await UserService().getUserProfile(user.uid);
+      
       setState(() {
-        _displayName = user.displayName!;
+        if (profile != null) {
+          _displayName = profile.name;
+          _photoUrl = profile.photoUrl;
+        } else if (user.displayName != null && user.displayName!.isNotEmpty) {
+          _displayName = user.displayName!;
+          _photoUrl = user.photoURL;
+        }
+        _hasImageError = false;
       });
+    }
+  }
+
+  // Helper para cargar imágenes (locales o remotas)
+  Widget _buildAvatarImage(
+    String imageUrl, {
+    double? width,
+    double? height,
+    BoxFit? fit,
+    Widget Function(BuildContext, Widget, ImageChunkEvent?)? loadingBuilder,
+    Widget Function(BuildContext, Object, StackTrace?)? errorBuilder,
+  }) {
+    final isLocalAsset = !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://');
+    
+    if (isLocalAsset) {
+      return Image.asset(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit ?? BoxFit.cover,
+        errorBuilder: errorBuilder,
+      );
+    } else {
+      return Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit ?? BoxFit.cover,
+        loadingBuilder: loadingBuilder,
+        errorBuilder: errorBuilder,
+      );
+    }
+  }
+
+  // Auto-asignar avatar cuando falla la foto de Google
+  Future<void> _autoAssignAvatar() async {
+    try {
+      // Usar el primer avatar como predeterminado
+      final fallbackAvatar = _avatarOptions[0];
+      
+      // Actualizar en Firestore silenciosamente
+      await UserService().createOrUpdateUserProfile(photoUrl: fallbackAvatar);
+
+      // Actualizar UI
+      if (mounted) {
+        setState(() {
+          _photoUrl = fallbackAvatar;
+          _hasImageError = false;
+        });
+      }
+    } catch (e) {
+      print('Error auto-asignando avatar: $e');
+    }
+  }
+
+  // Mostrar selector de avatares
+  void _showAvatarPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Elige tu Avatar',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 300,
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: _avatarOptions.length,
+                itemBuilder: (context, index) {
+                  final avatarUrl = _avatarOptions[index];
+                  final isSelected = _photoUrl == avatarUrl;
+                  
+                  return GestureDetector(
+                    onTap: () => _selectAvatar(avatarUrl),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected 
+                              ? const Color(0xFF34D399) 
+                              : const Color(0xFFE2E8F0),
+                          width: isSelected ? 3 : 2,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: _buildAvatarImage(
+                          avatarUrl,
+                          errorBuilder: (context, error, stackTrace) => 
+                              const Icon(Icons.person),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Seleccionar avatar
+  Future<void> _selectAvatar(String avatarUrl) async {
+    try {
+      // Actualizar en Firestore
+      await UserService().createOrUpdateUserProfile(photoUrl: avatarUrl);
+
+      // Actualizar UI
+      setState(() {
+        _photoUrl = avatarUrl;
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // Cerrar modal
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Avatar actualizado con éxito! ✨'),
+            backgroundColor: Color(0xFF34D399),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cambiar avatar: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -159,22 +340,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
+                Stack(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundImage: NetworkImage('https://picsum.photos/100/100?random=100'),
-                  ),
+                      child: _photoUrl != null && !_hasImageError
+                          ? ClipOval(
+                              child: _buildAvatarImage(
+                                _photoUrl!,
+                                width: 100,
+                                height: 100,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: Color(0xFFF1F5F9),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  // Error de carga (429 de Google, etc.)
+                                  print('Error cargando imagen: $error');
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted && !_hasImageError) {
+                                      setState(() => _hasImageError = true);
+                                      // Auto-asignar un avatar predefinido
+                                      _autoAssignAvatar();
+                                    }
+                                  });
+                                  // Mostrar avatar predeterminado mientras tanto
+                                  return CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: const Color(0xFFF1F5F9),
+                                    child: ClipOval(
+                                      child: _buildAvatarImage(
+                                        _avatarOptions[0],
+                                        errorBuilder: (_, __, ___) => const Icon(
+                                          Icons.person,
+                                          size: 50,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            )
+                          : CircleAvatar(
+                              radius: 50,
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              child: _photoUrl != null && _hasImageError
+                                  ? ClipOval(
+                                      child: _buildAvatarImage(
+                                        _photoUrl!,
+                                        errorBuilder: (_, __, ___) => const Icon(
+                                          Icons.person,
+                                          size: 50,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: Color(0xFF64748B),
+                                    ),
+                            ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: _showAvatarPicker,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF34D399),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.edit,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Row(

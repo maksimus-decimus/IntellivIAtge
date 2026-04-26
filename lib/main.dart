@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 
@@ -203,13 +204,31 @@ class _MainScreenState extends State<MainScreen> {
           });
         }
 
-        // If user IS logged in, show the App with Layout
-        return AppLayout(
-          currentScreen: _currentScreen,
-          onNavigate: _handleNavigate,
-          title: _getScreenTitle(_currentScreen),
-          shortcuts: _shortcuts,
-          child: _buildScreen(snapshot.data),
+        // If user IS logged in, listen to user profile from Firestore
+        final user = snapshot.data!;
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots(),
+          builder: (context, userDoc) {
+            String? photoUrl;
+            if (userDoc.hasData && userDoc.data != null) {
+              final data = userDoc.data!.data() as Map<String, dynamic>?;
+              photoUrl = data?['photoUrl'] as String?;
+            }
+            // Fallback to Firebase Auth photo
+            photoUrl ??= user.photoURL;
+
+            return AppLayout(
+              currentScreen: _currentScreen,
+              onNavigate: _handleNavigate,
+              title: _getScreenTitle(_currentScreen),
+              shortcuts: _shortcuts,
+              userPhotoUrl: photoUrl,
+              child: _buildScreen(user),
+            );
+          },
         );
       },
     );

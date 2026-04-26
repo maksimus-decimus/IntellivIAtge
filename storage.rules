@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Storage Security Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Reglas para fotos de perfil
+    match /profile_photos/{userId}.webp {
+      // Solo permite lectura pública
+      allow read: if true;
+      
+      // Solo el propietario puede escribir/actualizar/borrar su propia foto
+      allow write, update, delete: if request.auth != null 
+                                    && request.auth.uid == userId
+                                    && request.resource.size < 2 * 1024 * 1024  // Max 2MB
+                                    && request.resource.contentType == 'image/webp';
+    }
+  }
+}

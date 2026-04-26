@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 1. Added Firebase Auth
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../widgets/bouncy_button.dart';
 import '../services/user_service.dart';
 
@@ -13,10 +14,17 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // 2. Controllers to get the text from fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: '616941545128-40jvtaasrp2u7mpapu4kn3ieqd07talr.apps.googleusercontent.com',
+    scopes: [
+      'email',
+      'profile', // Incluye nombre y foto del perfil
+    ],
+  );
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -25,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // 3. The Firebase Login Logic
+  // Email/Password Sign In
   Future<void> _signIn() async {
     setState(() => _isLoading = true);
     try {
@@ -33,27 +41,29 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Create/update user profile and set online status
       await UserService().createOrUpdateUserProfile();
       await UserService().setOnline();
-      // Success! The StreamBuilder in main.dart will handle the switch.
     } on FirebaseAuthException catch (e) {
       String message = 'Ocurrió un error';
       if (e.code == 'user-not-found')
         message = 'Usuario no encontrado.';
-      else if (e.code == 'wrong-password') message = 'Contraseña incorrecta.';
+      else if (e.code == 'wrong-password')
+        message = 'Contraseña incorrecta.';
+      else if (e.code == 'invalid-email')
+        message = 'Correo electrónico inválido.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // 3b. Firebase Registration Logic
+  // Email/Password Registration
   Future<void> _signUp() async {
-    // Validation
     if (_emailController.text.trim().isEmpty || 
         _passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,10 +91,8 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Create user profile in Firestore
       await UserService().createOrUpdateUserProfile();
       await UserService().setOnline();
-      // Success! Show welcome message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -93,7 +101,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
-      // The StreamBuilder in main.dart will handle the navigation
     } on FirebaseAuthException catch (e) {
       String message = 'Ocurrió un error al crear la cuenta';
       if (e.code == 'weak-password') {
@@ -111,6 +118,92 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Google Sign-In
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      
+      // Guardar nombre y foto del perfil de Google
+      await UserService().createOrUpdateUserProfile(
+        displayName: googleUser.displayName,
+        photoUrl: googleUser.photoUrl,
+      );
+      await UserService().setOnline();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Bienvenido! 🎉'),
+            backgroundColor: Color(0xFF34D399),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error Google Sign-In: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al iniciar sesión con Google'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Password Reset
+  Future<void> _resetPassword() async {
+    if (_emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa tu correo electrónico primero'),
+          backgroundColor: Colors.orangeAccent,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Correo de recuperación enviado. Revisa tu bandeja de entrada 📧'),
+            backgroundColor: Color(0xFF34D399),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al enviar correo de recuperación'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -176,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Color(0xFF64748B))),
                   const SizedBox(height: 48),
 
-                  // 4. Email Input (Added Controller)
+                  // Email Input
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -184,15 +277,41 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 5. Password Input (Added Controller)
+                  // Password Input with toggle visibility
                   TextField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: _inputStyle('Contraseña'),
+                    obscureText: _obscurePassword,
+                    decoration: _inputStyle('Contraseña').copyWith(
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                        },
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 24),
+                  
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _resetPassword,
+                      child: const Text(
+                        '¿Olvidaste tu contraseña?',
+                        style: TextStyle(
+                          color: Color(0xFF6366F1),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
-                  // 6. Login Button (Connected to _signIn)
+                  // Login & Register Buttons
                   _isLoading
                       ? const CircularProgressIndicator()
                       : Column(
@@ -203,7 +322,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: const Text('¡Vamos allá!'),
                             ),
                             const SizedBox(height: 12),
-                            // 7. Register Button
                             BouncyButton(
                               onPressed: _signUp,
                               fullWidth: true,
@@ -215,37 +333,59 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
 
                   const SizedBox(height: 32),
-                  // ... Rest of your UI (Divider, Social Buttons) ...
+                  
+                  // Divider
                   Row(
                     children: const [
                       Expanded(child: Divider(color: Color(0xFFE2E8F0))),
                       Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('O CONTINÚA CON',
-                              style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12))),
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'O CONTINÚA CON',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                       Expanded(child: Divider(color: Color(0xFFE2E8F0))),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                          child: BouncyButton(
-                              onPressed: () {},
-                              color: Colors.white,
-                              child: const Text('Google',
-                                  style: TextStyle(color: Color(0xFF334155))))),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: BouncyButton(
-                              onPressed: () {},
-                              color: Colors.white,
-                              child: const Text('Apple',
-                                  style: TextStyle(color: Color(0xFF334155))))),
-                    ],
+                  
+                  // Google Sign-In Button
+                  BouncyButton(
+                    onPressed: _signInWithGoogle,
+                    fullWidth: true,
+                    color: Colors.white,
+                    child: const Text(
+                      'Google',
+                      style: TextStyle(
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // Footer
+                  const SizedBox(height: 32),
+                  Text(
+                    'Al continuar, aceptas nuestros Términos y Condiciones',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'v1.0.0',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -256,7 +396,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper for consistent styling
   InputDecoration _inputStyle(String hint) {
     return InputDecoration(
       hintText: hint,

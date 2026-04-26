@@ -7,6 +7,7 @@ class AppLayout extends StatelessWidget {
   final Function(ScreenName) onNavigate;
   final String? title;
   final List<ScreenName> shortcuts;
+  final String? userPhotoUrl;
 
   const AppLayout({
     Key? key,
@@ -15,6 +16,7 @@ class AppLayout extends StatelessWidget {
     required this.onNavigate,
     this.title,
     this.shortcuts = const [],
+    this.userPhotoUrl,
   }) : super(key: key);
 
   String _getScreenTitle(ScreenName screen) {
@@ -100,6 +102,60 @@ class AppLayout extends StatelessWidget {
     }
   }
 
+  Widget _buildUserAvatar() {
+    // Helper to build image widget based on URL type
+    Widget buildImage(String imageUrl) {
+      final isLocalAsset = !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://');
+      
+      if (isLocalAsset) {
+        return Image.asset(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(
+            Icons.person,
+            size: 24,
+            color: Color(0xFF64748B),
+          ),
+        );
+      } else {
+        return Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF64748B)),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) => const Icon(
+            Icons.person,
+            size: 24,
+            color: Color(0xFF64748B),
+          ),
+        );
+      }
+    }
+
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: const Color(0xFFF1F5F9),
+      child: userPhotoUrl != null
+          ? ClipOval(child: buildImage(userPhotoUrl!))
+          : const Icon(
+              Icons.person,
+              size: 24,
+              color: Color(0xFF64748B),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isHome = currentScreen == ScreenName.home;
@@ -120,10 +176,7 @@ class AppLayout extends StatelessWidget {
         leading: isHome
             ? Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: CircleAvatar(
-                  backgroundImage: NetworkImage('https://picsum.photos/50/50?random=100'),
-                  radius: 20,
-                ),
+                child: _buildUserAvatar(),
               )
             : IconButton(
                 icon: const Text('🔙', style: TextStyle(fontSize: 24)),
