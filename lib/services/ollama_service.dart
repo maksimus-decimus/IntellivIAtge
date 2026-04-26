@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class OllamaService {
   static const String _baseUrl = 'http://localhost:11434';
   static const String _model = 'llama3.1';
-  
+
   static const String _systemInstruction = '''
 Eres "GaudíBot", un guía turístico experto, amigable y divertido de Barcelona. 
 Tus respuestas deben ser útiles para turistas, concisas y con un tono alegre. 
@@ -23,7 +23,6 @@ Si te preguntan algo fuera de Barcelona, redirígelos amablemente a la ciudad.
           'stream': false,
         }),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['response'] ?? 'No pude obtener respuesta';
@@ -31,15 +30,14 @@ Si te preguntan algo fuera de Barcelona, redirígelos amablemente a la ciudad.
         return 'Error al conectar con Ollama';
       }
     } catch (e) {
-      print('Ollama Error: $e');
       return '¡Ups! No pude conectar con el modelo local. ¿Está Ollama corriendo?';
     }
   }
 
   Future<String> translateText(String text, String targetLang) async {
     try {
-      final prompt = 'Traduce el siguiente texto al $targetLang. Devuelve SOLO el texto traducido, sin explicaciones extra. Texto: "$text"';
-      
+      final prompt =
+          'Traduce el siguiente texto al $targetLang. Devuelve SOLO el texto traducido, sin explicaciones extra. Texto: "$text"';
       final response = await http.post(
         Uri.parse('$_baseUrl/api/generate'),
         headers: {'Content-Type': 'application/json'},
@@ -49,7 +47,6 @@ Si te preguntan algo fuera de Barcelona, redirígelos amablemente a la ciudad.
           'stream': false,
         }),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['response'] ?? 'Error traducción';
@@ -57,7 +54,6 @@ Si te preguntan algo fuera de Barcelona, redirígelos amablemente a la ciudad.
         return 'Error';
       }
     } catch (e) {
-      print('Translation Error: $e');
       return 'Error';
     }
   }
