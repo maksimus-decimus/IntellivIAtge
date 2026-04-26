@@ -32,19 +32,33 @@ class UserService {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final profile = UserProfile(
-        id: user.uid,
-        name: displayName ?? user.displayName ?? 'Usuario',
-        email: user.email ?? '',
-        photoUrl: photoUrl ?? user.photoURL,
-        status: 'online',
-        lastSeen: DateTime.now(),
-      );
+      // Check if user document exists
+      final docRef = _firestore.collection('users').doc(user.uid);
+      final docSnapshot = await docRef.get();
+      
+      final Map<String, dynamic> updateData = {
+        'email': user.email ?? '',
+        'status': 'online',
+        'lastSeen': DateTime.now().toIso8601String(),
+      };
+      
+      // Only update fields that are explicitly provided
+      if (displayName != null) {
+        updateData['name'] = displayName;
+      } else if (!docSnapshot.exists) {
+        // For new users, set default name
+        updateData['name'] = user.displayName ?? 'Usuario';
+      }
+      
+      if (photoUrl != null) {
+        updateData['photoUrl'] = photoUrl;
+      } else if (!docSnapshot.exists && user.photoURL != null) {
+        // For new users, use Firebase Auth photo if available
+        updateData['photoUrl'] = user.photoURL;
+      }
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .set(profile.toMap(), SetOptions(merge: true));
+      await docRef.set(updateData, SetOptions(merge: true));
+      print('✅ Perfil actualizado: $updateData');
     } catch (e) {
       print('Error creating/updating user profile: $e');
     }

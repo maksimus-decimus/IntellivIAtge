@@ -11,7 +11,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   String _displayName = 'Viajero Explorador';
   String? _photoUrl;
   bool _hasImageError = false;
@@ -29,11 +29,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadUserName();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Recargar cuando la app vuelve a estar activa
+    if (state == AppLifecycleState.resumed) {
+      _loadUserName();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recargar datos cada vez que la pantalla se hace visible
     _loadUserName();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     super.dispose();
   }
@@ -44,16 +61,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Cargar desde Firestore (tiene prioridad sobre Firebase Auth)
       final profile = await UserService().getUserProfile(user.uid);
       
-      setState(() {
-        if (profile != null) {
-          _displayName = profile.name;
-          _photoUrl = profile.photoUrl;
-        } else if (user.displayName != null && user.displayName!.isNotEmpty) {
-          _displayName = user.displayName!;
-          _photoUrl = user.photoURL;
-        }
-        _hasImageError = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (profile != null) {
+            _displayName = profile.name;
+            _photoUrl = profile.photoUrl;
+            print('📸 Avatar cargado desde Firestore: $_photoUrl');
+          } else if (user.displayName != null && user.displayName!.isNotEmpty) {
+            _displayName = user.displayName!;
+            _photoUrl = user.photoURL;
+            print('📸 Avatar cargado desde Firebase Auth: $_photoUrl');
+          }
+          _hasImageError = false;
+        });
+      }
     }
   }
 
@@ -187,6 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Seleccionar avatar
   Future<void> _selectAvatar(String avatarUrl) async {
     try {
+      print('💾 Guardando avatar: $avatarUrl');
       // Actualizar en Firestore
       await UserService().createOrUpdateUserProfile(photoUrl: avatarUrl);
 
@@ -195,6 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Actualizar UI
       setState(() {
         _photoUrl = avatarUrl;
+        _hasImageError = false; // Resetear flag de error
       });
 
       Navigator.pop(context); // Cerrar modal
@@ -205,6 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     } catch (e) {
+      print('❌ Error guardando avatar: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
