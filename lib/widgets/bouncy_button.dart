@@ -43,12 +43,14 @@ class _BouncyButtonState extends State<BouncyButton> {
         decoration: BoxDecoration(
           color: widget.color,
           borderRadius: widget.borderRadius,
-          border: Border(
-            bottom: BorderSide(
-              color: widget.shadowColor,
-              width: _isPressed ? 0 : 4,
-            ),
-          ),
+          border: _isPressed
+              ? null
+              : Border(
+                  bottom: BorderSide(
+                    color: widget.shadowColor,
+                    width: 4,
+                  ),
+                ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
