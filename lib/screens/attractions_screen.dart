@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../models/types.dart';
 import '../services/favorites_service.dart';
 import '../widgets/add_to_agenda_dialog.dart';
+import '../widgets/attraction_details_modal.dart';
 
 class AttractionsScreen extends StatefulWidget {
   const AttractionsScreen({Key? key}) : super(key: key);
@@ -300,7 +301,20 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                                   children: [
                                     Expanded(
                                       child: GestureDetector(
-                                        onTap: () {},
+                                        onTap: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.vertical(
+                                                top: Radius.circular(24),
+                                              ),
+                                            ),
+                                            builder: (context) => AttractionDetailsModal(
+                                              attraction: attraction,
+                                            ),
+                                          );
+                                        },
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(vertical: 11),
                                           decoration: BoxDecoration(

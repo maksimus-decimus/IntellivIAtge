@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../models/types.dart';
 import '../services/favorites_service.dart';
 import '../widgets/add_to_agenda_dialog.dart';
+import '../widgets/restaurant_details_modal.dart';
 
 enum RestaurantTab { dishes, restaurants }
 
@@ -1087,10 +1088,18 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                setState(() {
-                                  _selectedRestaurant = restaurant;
-                                  _activeView = RestaurantView.restaurantDetails;
-                                });
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24),
+                                    ),
+                                  ),
+                                  builder: (context) => RestaurantDetailsModal(
+                                    restaurant: restaurant,
+                                  ),
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.grey[100],
