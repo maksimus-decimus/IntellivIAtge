@@ -500,8 +500,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   ],
                 ),
                 const Positioned(
-                  right: -16,
-                  bottom: -16,
+                  right: -30,
+                  bottom: -30,
                   child: Text(
                     '🎉',
                     style: TextStyle(fontSize: 80),
