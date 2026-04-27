@@ -533,16 +533,31 @@ class FriendRequest {
 class Activity {
   final String time; // e.g., "10:00", "14:30"
   final String description;
+  final String? type; // 'attraction', 'restaurant', 'custom'
+  final String? itemId; // ID of the attraction or restaurant
+  final String? name; // Name of the place
+  final String? image; // Image URL
+  final String? category; // Category or type of place
 
   Activity({
     required this.time,
     required this.description,
+    this.type,
+    this.itemId,
+    this.name,
+    this.image,
+    this.category,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'time': time,
       'description': description,
+      'type': type,
+      'itemId': itemId,
+      'name': name,
+      'image': image,
+      'category': category,
     };
   }
 
@@ -550,6 +565,11 @@ class Activity {
     return Activity(
       time: map['time'] ?? '',
       description: map['description'] ?? '',
+      type: map['type'],
+      itemId: map['itemId'],
+      name: map['name'],
+      image: map['image'],
+      category: map['category'],
     );
   }
 }

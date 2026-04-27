@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../models/types.dart';
 import '../services/favorites_service.dart';
+import '../widgets/add_to_agenda_dialog.dart';
 
 class AttractionsScreen extends StatefulWidget {
   const AttractionsScreen({Key? key}) : super(key: key);
@@ -295,32 +296,78 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(vertical: 11),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0F9FF),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: const Color(0xFFE0F2FE), width: 1),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.location_on, size: 16, color: Colors.grey[500]),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Ver ubicación',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey[700],
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {},
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 11),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF0F9FF),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: const Color(0xFFE0F2FE), width: 1),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.location_on, size: 16, color: Colors.grey[500]),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Ver ubicación',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey[700],
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => AddToAgendaDialog(
+                                              itemName: attraction.name,
+                                              itemType: 'attraction',
+                                              attraction: attraction,
+                                              onSuccess: () {
+                                                // Refresh or show success message
+                                              },
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 11),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFCE7F3),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: const Color(0xFFFFBBE1), width: 1),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.calendar_today, size: 16, color: Colors.pink[600]),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'A la agenda',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.pink[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
